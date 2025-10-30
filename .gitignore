@@ -1,0 +1,6 @@
+.byebug_history
+.rspec_status
+
+*.pdf
+
+research/
