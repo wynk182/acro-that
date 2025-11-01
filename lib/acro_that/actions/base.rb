@@ -39,6 +39,10 @@ module AcroThat
       def acroform_ref
         @document.send(:acroform_ref)
       end
+
+      def find_page_by_number(page_num)
+        @document.send(:find_page_by_number, page_num)
+      end
     end
   end
 end

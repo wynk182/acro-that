@@ -316,6 +316,13 @@ module AcroThat
       body.include?("/Subtype") && body.include?("/Widget") && body =~ %r{/Subtype\s*/Widget}
     end
 
+    # Check if a body represents a page object (not /Type/Pages)
+    def is_page?(body)
+      return false unless body
+
+      body.include?("/Type /Page") || body =~ %r{/Type\s*/Page(?!s)\b}
+    end
+
     # Check if a field is multiline by checking /Ff flag bit 12 (0x1000)
     def is_multiline_field?(dict_body)
       return false unless dict_body

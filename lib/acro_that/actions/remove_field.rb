@@ -107,11 +107,7 @@ module AcroThat
         page_objects = []
         resolver.each_object do |ref, body|
           next unless body
-
-          is_page = body.include?("/Type /Page") ||
-                    body.include?("/Type/Page") ||
-                    (body.include?("/Type") && body.include?("/Page") && body =~ %r{/Type\s*/Page})
-          next unless is_page
+          next unless DictScan.is_page?(body)
 
           page_objects << ref
         end

@@ -74,35 +74,7 @@ module AcroThat
     # Return an array of page information (page number, width, height, ref, metadata)
     def list_pages
       pages = []
-      page_objects = []
-
-      # Try to get pages in document order via page tree first
-      root_ref = @resolver.root_ref
-      if root_ref
-        catalog_body = @resolver.object_body(root_ref)
-        if catalog_body && catalog_body =~ %r{/Pages\s+(\d+)\s+(\d+)\s+R}
-          pages_ref = [Integer(::Regexp.last_match(1)), Integer(::Regexp.last_match(2))]
-
-          # Recursively collect pages from page tree
-          collect_pages_from_tree(pages_ref, page_objects)
-        end
-      end
-
-      # Fallback: collect all page objects if page tree didn't work
-      if page_objects.empty?
-        @resolver.each_object do |ref, body|
-          next unless body
-
-          # Match /Type /Page or /Type/Page but NOT /Type/Pages
-          is_page = body.include?("/Type /Page") || body =~ %r{/Type\s*/Page(?!s)\b}
-          next unless is_page
-
-          page_objects << ref unless page_objects.include?(ref)
-        end
-
-        # Sort by object number as fallback
-        page_objects.sort_by! { |ref| ref[0] }
-      end
+      page_objects = find_all_pages
 
       # Second pass: extract information from each page
       page_objects.each_with_index do |ref, index|
@@ -554,8 +526,7 @@ module AcroThat
         end
 
         body = obj[:body]
-        # Match /Type /Page or /Type/Page but NOT /Type/Pages
-        next unless body&.include?("/Type /Page") || body =~ %r{/Type\s*/Page(?!s)\b}
+        next unless DictScan.is_page?(body)
 
         # Handle inline /Annots array
         if body =~ %r{/Annots\s*\[(.*?)\]}
@@ -706,7 +677,7 @@ module AcroThat
           kid_body = @resolver.object_body(kid_ref)
 
           # Check if this kid is a page (not /Type/Pages)
-          if kid_body && (kid_body.include?("/Type /Page") || kid_body =~ %r{/Type\s*/Page(?!s)\b})
+          if kid_body && DictScan.is_page?(kid_body)
             page_objects << kid_ref unless page_objects.include?(kid_ref)
           elsif kid_body && kid_body.include?("/Type /Pages")
             # Recursively find pages in this Pages node
@@ -716,13 +687,51 @@ module AcroThat
       end
     end
 
-    def find_page_number_for_ref(page_ref)
+    # Find all page objects in document order
+    # Returns an array of page references [obj_num, gen_num]
+    def find_all_pages
       page_objects = []
-      @resolver.each_object do |ref, body|
-        next unless body&.include?("/Type /Page")
 
-        page_objects << ref
+      # First, try to get pages in document order via page tree
+      root_ref = @resolver.root_ref
+      if root_ref
+        catalog_body = @resolver.object_body(root_ref)
+        if catalog_body && catalog_body =~ %r{/Pages\s+(\d+)\s+(\d+)\s+R}
+          pages_ref = [Integer(::Regexp.last_match(1)), Integer(::Regexp.last_match(2))]
+          collect_pages_from_tree(pages_ref, page_objects)
+        end
       end
+
+      # Fallback: collect all page objects if page tree didn't work
+      if page_objects.empty?
+        @resolver.each_object do |ref, body|
+          next unless body
+
+          next unless DictScan.is_page?(body)
+
+          page_objects << ref unless page_objects.include?(ref)
+        end
+
+        # Sort by object number as fallback
+        page_objects.sort_by! { |ref| ref[0] }
+      end
+
+      page_objects
+    end
+
+    # Find a page by its page number (1-indexed)
+    # Returns [obj_num, gen_num] or nil if not found
+    def find_page_by_number(page_num)
+      page_objects = find_all_pages
+
+      return nil if page_objects.empty?
+      return page_objects[page_num - 1] if page_num.positive? && page_num <= page_objects.length
+
+      page_objects[0] # Default to first page if page_num is out of range
+    end
+
+    def find_page_number_for_ref(page_ref)
+      page_objects = find_all_pages
 
       return nil if page_objects.empty?
 

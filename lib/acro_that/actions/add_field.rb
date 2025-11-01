@@ -153,61 +153,8 @@ module AcroThat
       end
 
       def find_page_ref(page_num)
-        page_objects = []
-        resolver.each_object do |ref, body|
-          next unless body
-
-          # Check for /Type /Page (actual page, not /Type/Pages)
-          # Must match /Type /Page or /Type/Page but NOT /Type/Pages
-          is_page = body.include?("/Type /Page") ||
-                    (body =~ %r{/Type\s*/Page(?!s)\b})
-          next unless is_page
-
-          page_objects << ref
-        end
-
-        # If still no pages found, try to find them via the page tree
-        if page_objects.empty?
-          # Find the document catalog's /Pages entry
-          root_ref = resolver.root_ref
-          if root_ref
-            catalog_body = resolver.object_body(root_ref)
-            if catalog_body && catalog_body =~ %r{/Pages\s+(\d+)\s+(\d+)\s+R}
-              pages_ref = [Integer(::Regexp.last_match(1)), Integer(::Regexp.last_match(2))]
-              pages_body = resolver.object_body(pages_ref)
-
-              # Extract /Kids array from Pages object
-              if pages_body && pages_body =~ %r{/Kids\s*\[(.*?)\]}m
-                kids_array = ::Regexp.last_match(1)
-                # Extract all object references from Kids array
-                kids_array.scan(/(\d+)\s+(\d+)\s+R/) do |num_str, gen_str|
-                  kid_ref = [num_str.to_i, gen_str.to_i]
-                  kid_body = resolver.object_body(kid_ref)
-                  # Check if this kid is a page (not /Type/Pages)
-                  if kid_body && (kid_body.include?("/Type /Page") || kid_body =~ %r{/Type\s*/Page(?!s)\b})
-                    page_objects << kid_ref
-                  elsif kid_body && kid_body.include?("/Type /Pages")
-                    # Recursively find pages in this Pages node
-                    if kid_body =~ %r{/Kids\s*\[(.*?)\]}m
-                      kid_body[::Regexp.last_match(0)..].scan(/(\d+)\s+(\d+)\s+R/) do |n, g|
-                        grandkid_ref = [n.to_i, g.to_i]
-                        grandkid_body = resolver.object_body(grandkid_ref)
-                        if grandkid_body && (grandkid_body.include?("/Type /Page") || grandkid_body =~ %r{/Type\s*/Page(?!s)\b})
-                          page_objects << grandkid_ref
-                        end
-                      end
-                    end
-                  end
-                end
-              end
-            end
-          end
-        end
-
-        return page_objects[0] if page_objects.empty?
-        return page_objects[page_num - 1] if page_num.positive? && page_num <= page_objects.length
-
-        page_objects[0]
+        # Use Document's unified page-finding method
+        find_page_by_number(page_num)
       end
 
       def add_widget_to_page(widget_obj_num, page_num)
