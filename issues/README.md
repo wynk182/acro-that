@@ -13,21 +13,26 @@ This folder contains documentation of code cleanup and refactoring opportunities
 2. **/Annots Array Manipulation** - Complex logic duplicated in 3 locations
 
 ### Medium Priority Issues
-3. **Page-Finding Logic** - Similar logic in 4+ methods
-4. **Box Parsing Logic** - Repeated code blocks for 5 box types
+3. **Box Parsing Logic** - Repeated code blocks for 5 box types
+4. **Checkbox Appearance Creation** - Significant duplication in new code
+5. **PDF Metadata Formatting** - Could benefit from being shared utilities
 
 ### Low Priority Issues
-5. Duplicated `next_fresh_object_number` implementation
-6. Object reference extraction pattern duplication
-7. Unused method: `get_widget_rect_dimensions`
-8. Base64 decoding logic duplication
+6. Duplicated `next_fresh_object_number` implementation (may be intentional)
+7. Object reference extraction pattern duplication
+8. Unused method: `get_widget_rect_dimensions`
+9. Base64 decoding logic duplication
+
+### Completed ✅
+- **Page-Finding Logic** - Successfully refactored into `DictScan.is_page?` and unified page-finding methods
 
 ## Quick Stats
 
-- **8 refactoring opportunities** identified
+- **10 refactoring opportunities** identified (1 completed, 9 remaining)
 - **6+ locations** with widget matching duplication
 - **3 locations** with /Annots array manipulation duplication
 - **1 unused method** found
+- **2 new issues** identified in recent code additions
 
 ## Next Steps
 

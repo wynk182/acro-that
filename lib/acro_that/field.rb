@@ -9,6 +9,8 @@ module AcroThat
     TYPES = {
       text: "/Tx",
       button: "/Btn",
+      checkbox: "/Btn",
+      radio: "/Btn",
       choice: "/Ch",
       signature: "/Sig"
     }.freeze

@@ -29,6 +29,10 @@ module AcroThat
                         "/Tx"
                       when :button, "button", "/Btn", "/btn"
                         "/Btn"
+                      when :radio, "radio"
+                        "/Btn"
+                      when :checkbox, "checkbox"
+                        "/Btn"
                       when :choice, "choice", "/Ch", "/ch"
                         "/Ch"
                       when :signature, "signature", "/Sig", "/sig"
@@ -37,6 +41,12 @@ module AcroThat
                         type_input.to_s # Use as-is if it's already in PDF format
                       end
         @field_value = @options[:value] || ""
+
+        # Auto-set radio button flags if type is :radio and flags not explicitly set
+        # Radio button flags: Radio (bit 15 = 32768) + NoToggleToOff (bit 14 = 16384) = 49152
+        if [:radio, "radio"].include?(type_input) && !(@metadata[:Ff] || @metadata["Ff"])
+          @metadata[:Ff] = 49_152
+        end
 
         # Create a proper field dictionary + a widget annotation that references it via /Parent
         @field_obj_num = next_fresh_object_number
@@ -74,6 +84,21 @@ module AcroThat
           end
         end
 
+        # If this is a checkbox (button field that's not a radio button), add appearance dictionaries
+        # Button fields can be checkboxes or radio buttons:
+        # - Radio buttons have Radio flag (bit 15 = 32768) set
+        # - Checkboxes don't have Radio flag set
+        is_checkbox = false
+        if @field_type == "/Btn"
+          field_flags = (@metadata[:Ff] || @metadata["Ff"] || 0).to_i
+          is_radio = field_flags.anybits?(32_768) || [:radio, "radio"].include?(type_input)
+          is_checkbox = !is_radio
+        end
+
+        if is_checkbox
+          add_checkbox_appearance(widget_obj_num, x, y, width, height)
+        end
+
         true
       end
 
@@ -85,13 +110,15 @@ module AcroThat
         dict += "  /T #{DictScan.encode_pdf_string(@name)}\n"
 
         # Apply /Ff from metadata, or use default 0
+        # Note: Radio button flags should already be set in metadata during type normalization
         field_flags = @metadata[:Ff] || @metadata["Ff"] || 0
         dict += "  /Ff #{field_flags}\n"
 
         dict += "  /DA (/Helv 0 Tf 0 g)\n"
 
         # For signature fields with image data, don't set /V (appearance stream will be added separately)
-        # For other fields or non-image signature values, set /V normally
+        # For checkboxes/radio buttons, set /V to normalized value (Yes/Off) - macOS Preview needs this
+        # For other fields, set /V normally
         should_set_value = if type == "/Sig" && value && !value.empty?
                              # Check if value looks like image data
                              !(value.is_a?(String) && (value.start_with?("data:image/") || (value.length > 50 && value.match?(%r{^[A-Za-z0-9+/]*={0,2}$}))))
@@ -99,14 +126,24 @@ module AcroThat
                              true
                            end
 
-        dict += "  /V #{DictScan.encode_pdf_string(value)}\n" if should_set_value && value && !value.empty?
+        # For button fields (checkboxes/radio), normalize value to "Yes" or "Off"
+        normalized_field_value = if type == "/Btn" && value
+                                   # Accept "Yes", "/Yes" (PDF name format), true (boolean), or "true" (string)
+                                   value_str = value.to_s
+                                   is_checked = ["Yes", "/Yes", "true"].include?(value_str) || value == true
+                                   is_checked ? "Yes" : "Off"
+                                 else
+                                   value
+                                 end
+
+        dict += "  /V #{DictScan.encode_pdf_string(normalized_field_value)}\n" if should_set_value && normalized_field_value && !normalized_field_value.to_s.empty?
 
         # Apply other metadata entries (excluding Ff which we handled above)
         @metadata.each do |key, val|
           next if [:Ff, "Ff"].include?(key) # Already handled above
 
-          pdf_key = format_pdf_key(key)
-          pdf_value = format_pdf_value(val)
+          pdf_key = DictScan.format_pdf_key(key)
+          pdf_value = DictScan.format_pdf_value(val)
           dict += "  #{pdf_key} #{pdf_value}\n"
         end
 
@@ -126,22 +163,37 @@ module AcroThat
         widget += "  /F 4\n"
         widget += "  /DA (/Helv 0 Tf 0 g)\n"
 
+        # For checkboxes, /V is set to "Yes" or "Off" and /AS is set accordingly
         # For signature fields with image data, don't set /V (appearance stream will be added separately)
         # For other fields or non-image signature values, set /V normally
         should_set_value = if type == "/Sig" && value && !value.empty?
                              # Check if value looks like image data
                              !(value.is_a?(String) && (value.start_with?("data:image/") || (value.length > 50 && value.match?(%r{^[A-Za-z0-9+/]*={0,2}$}))))
+                           elsif type == "/Btn"
+                             # For button fields (checkboxes), set /V to "Yes" or "Off"
+                             # This will be handled by checkbox appearance code, but we set it here for consistency
+                             true
                            else
                              true
                            end
 
-        widget += "  /V #{DictScan.encode_pdf_string(value)}\n" if should_set_value && value && !value.empty?
+        # For checkboxes, set /V to "Yes" or empty/Off
+        if type == "/Btn" && should_set_value
+          # Checkbox value should be "Yes" if checked, otherwise empty or "Off"
+          # Accept "Yes", "/Yes" (PDF name format), true (boolean), or "true" (string)
+          value_str = value.to_s
+          is_checked = ["Yes", "/Yes", "true"].include?(value_str) || value == true
+          checkbox_value = is_checked ? "Yes" : "Off"
+          widget += "  /V #{DictScan.encode_pdf_string(checkbox_value)}\n"
+        elsif should_set_value && value && !value.empty?
+          widget += "  /V #{DictScan.encode_pdf_string(value)}\n"
+        end
 
         # Apply metadata entries that are valid for widgets
         # Common widget properties: /Q (alignment), /Ff (field flags), /BS (border style), etc.
         @metadata.each do |key, val|
-          pdf_key = format_pdf_key(key)
-          pdf_value = format_pdf_value(val)
+          pdf_key = DictScan.format_pdf_key(key)
+          pdf_value = DictScan.format_pdf_value(val)
           # Only add if not already present (we've added /F above, /V above if value exists)
           next if ["/F", "/V"].include?(pdf_key)
 
@@ -180,6 +232,41 @@ module AcroThat
         # Step 2: Ensure /NeedAppearances true
         unless patched.include?("/NeedAppearances")
           patched = DictScan.upsert_key_value(patched, "/NeedAppearances", "true")
+        end
+
+        # Step 2.5: Remove /XFA if present (prevents XFA detection warnings in viewers like Master PDF)
+        # We're creating AcroForms, not XFA forms, so remove /XFA if it exists
+        if patched.include?("/XFA")
+          xfa_pattern = %r{/XFA(?=[\s(<\[/])}
+          if patched.match(xfa_pattern)
+            # Try to get the value token to determine what we're removing
+            xfa_value = DictScan.value_token_after("/XFA", patched)
+            if xfa_value
+              # Remove /XFA by replacing it with an empty string
+              # We'll use a simple approach: find the key and remove it with its value
+              xfa_match = patched.match(xfa_pattern)
+              if xfa_match
+                # Find the start and end of /XFA and its value
+                key_start = xfa_match.begin(0)
+                # Skip /XFA key
+                value_start = xfa_match.end(0)
+                value_start += 1 while value_start < patched.length && patched[value_start] =~ /\s/
+                # Use value_token_after to get the complete value token
+                # We already have xfa_value, so calculate its end
+                value_end = value_start + xfa_value.length
+                # Skip trailing whitespace
+                value_end += 1 while value_end < patched.length && patched[value_end] =~ /\s/
+                # Remove /XFA and its value
+                before = patched[0...key_start]
+                # Remove any whitespace before /XFA too (but not the opening <<)
+                before = before.rstrip
+                after = patched[value_end..]
+                patched = "#{before} #{after.lstrip}".strip
+                # Clean up any double spaces
+                patched = patched.gsub(/\s+/, " ")
+              end
+            end
+          end
         end
 
         # Step 3: Ensure /DR /Font has /Helv mapping
@@ -281,40 +368,120 @@ module AcroThat
         true
       end
 
-      # Format a metadata key as a PDF dictionary key (ensure it starts with /)
-      def format_pdf_key(key)
-        key_str = key.to_s
-        key_str.start_with?("/") ? key_str : "/#{key_str}"
+      def add_checkbox_appearance(widget_obj_num, _x, _y, width, height)
+        # Create appearance form XObjects for Yes and Off states
+        yes_obj_num = next_fresh_object_number
+        off_obj_num = yes_obj_num + 1
+
+        # Create Yes appearance (checked box with checkmark)
+        yes_body = create_checkbox_yes_appearance(width, height)
+        @document.instance_variable_get(:@patches) << { ref: [yes_obj_num, 0], body: yes_body }
+
+        # Create Off appearance (empty box)
+        off_body = create_checkbox_off_appearance(width, height)
+        @document.instance_variable_get(:@patches) << { ref: [off_obj_num, 0], body: off_body }
+
+        # Get current widget body and add /AP dictionary
+        widget_ref = [widget_obj_num, 0]
+        original_widget_body = get_object_body_with_patch(widget_ref)
+        widget_body = original_widget_body.dup
+
+        # Create /AP dictionary with Yes and Off appearances
+        ap_dict = "<<\n  /N <<\n    /Yes #{yes_obj_num} 0 R\n    /Off #{off_obj_num} 0 R\n  >>\n>>"
+
+        # Add /AP to widget
+        if widget_body.include?("/AP")
+          # Replace existing /AP
+          ap_key_pattern = %r{/AP(?=[\s(<\[/])}
+          if widget_body.match(ap_key_pattern)
+            widget_body = DictScan.replace_key_value(widget_body, "/AP", ap_dict)
+          end
+        else
+          # Insert /AP before closing >>
+          widget_body = DictScan.upsert_key_value(widget_body, "/AP", ap_dict)
+        end
+
+        # Set /AS based on the value - use the EXACT same normalization logic as widget creation
+        # This ensures consistency between /V and /AS
+        # Normalize value: "Yes" if truthy (Yes, "/Yes", true, etc.), otherwise "Off"
+        value_str = @field_value.to_s
+        is_checked = value_str == "Yes" || value_str == "/Yes" || value_str == "true" || @field_value == true
+        normalized_value = is_checked ? "Yes" : "Off"
+
+        # Set /AS to match normalized value (same as what was set for /V in widget creation)
+        as_value = if normalized_value == "Yes"
+                     "/Yes"
+                   else
+                     "/Off"
+                   end
+
+        widget_body = if widget_body.include?("/AS")
+                        DictScan.replace_key_value(widget_body, "/AS", as_value)
+                      else
+                        DictScan.upsert_key_value(widget_body, "/AS", as_value)
+                      end
+
+        apply_patch(widget_ref, widget_body, original_widget_body)
       end
 
-      # Format a metadata value appropriately for PDF
-      def format_pdf_value(value)
-        case value
-        when Integer, Float
-          value.to_s
-        when String
-          # If it looks like a PDF string (starts with parenthesis or angle bracket), use as-is
-          if value.start_with?("(") || value.start_with?("<") || value.start_with?("/")
-            value
-          else
-            # Otherwise encode as a PDF string
-            DictScan.encode_pdf_string(value)
-          end
-        when Array
-          # Array format: [item1 item2 item3]
-          items = value.map { |v| format_pdf_value(v) }.join(" ")
-          "[#{items}]"
-        when Hash
-          # Dictionary format: << /Key1 value1 /Key2 value2 >>
-          dict = value.map do |k, v|
-            pdf_key = format_pdf_key(k)
-            pdf_val = format_pdf_value(v)
-            "  #{pdf_key} #{pdf_val}"
-          end.join("\n")
-          "<<\n#{dict}\n>>"
-        else
-          value.to_s
-        end
+      def create_checkbox_yes_appearance(width, height)
+        # Create a form XObject that draws a checked checkbox
+        # Box outline + checkmark
+        # Scale to match width and height
+        # Simple appearance: draw a box and a checkmark
+        # For simplicity, use PDF drawing operators
+        # Box: rectangle from (0,0) to (width, height)
+        # Checkmark: simple path drawing
+
+        # PDF content stream for checked checkbox
+        # Draw just the checkmark (no box border)
+        border_width = [width * 0.08, height * 0.08].min
+
+        # Calculate checkmark path
+        check_x1 = width * 0.25
+        check_y1 = height * 0.45
+        check_x2 = width * 0.45
+        check_y2 = height * 0.25
+        check_x3 = width * 0.75
+        check_y3 = height * 0.75
+
+        content_stream = "q\n"
+        content_stream += "0 0 0 rg\n" # Black color (darker)
+        content_stream += "#{border_width} w\n" # Line width
+        # Draw checkmark only (no box border)
+        content_stream += "#{check_x1} #{check_y1} m\n"
+        content_stream += "#{check_x2} #{check_y2} l\n"
+        content_stream += "#{check_x3} #{check_y3} l\n"
+        content_stream += "S\n" # Stroke
+        content_stream += "Q\n"
+
+        build_form_xobject(content_stream, width, height)
+      end
+
+      def create_checkbox_off_appearance(width, height)
+        # Create a form XObject for unchecked checkbox
+        # Empty appearance (no border, no checkmark) - viewer will draw default checkbox
+
+        content_stream = "q\n"
+        # Empty appearance for unchecked state
+        content_stream += "Q\n"
+
+        build_form_xobject(content_stream, width, height)
+      end
+
+      def build_form_xobject(content_stream, width, height)
+        # Build a Form XObject dictionary with the given content stream
+        dict = "<<\n"
+        dict += "  /Type /XObject\n"
+        dict += "  /Subtype /Form\n"
+        dict += "  /BBox [0 0 #{width} #{height}]\n"
+        dict += "  /Length #{content_stream.bytesize}\n"
+        dict += ">>\n"
+        dict += "stream\n"
+        dict += content_stream
+        dict += "\nendstream"
+
+        dict
       end
     end
   end

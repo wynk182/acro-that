@@ -84,58 +84,19 @@ module AcroThat
         # Extract MediaBox, CropBox, or ArtBox for dimensions
         width = nil
         height = nil
-        media_box = nil
-        crop_box = nil
-        art_box = nil
-        bleed_box = nil
-        trim_box = nil
 
-        # Try MediaBox first (most common)
-        if body =~ %r{/MediaBox\s*\[(.*?)\]}
-          box_values = ::Regexp.last_match(1).scan(/[-+]?\d*\.?\d+/).map(&:to_f)
-          if box_values.length == 4
-            llx, lly, urx, ury = box_values
-            width = urx - llx
-            height = ury - lly
-            media_box = { llx: llx, lly: lly, urx: urx, ury: ury }
-          end
+        # Try MediaBox first (most common) - also extract width/height
+        media_box = DictScan.parse_box(body, "MediaBox")
+        if media_box
+          width = media_box[:urx] - media_box[:llx]
+          height = media_box[:ury] - media_box[:lly]
         end
 
-        # Try CropBox
-        if body =~ %r{/CropBox\s*\[(.*?)\]}
-          box_values = ::Regexp.last_match(1).scan(/[-+]?\d*\.?\d+/).map(&:to_f)
-          if box_values.length == 4
-            llx, lly, urx, ury = box_values
-            crop_box = { llx: llx, lly: lly, urx: urx, ury: ury }
-          end
-        end
-
-        # Try ArtBox
-        if body =~ %r{/ArtBox\s*\[(.*?)\]}
-          box_values = ::Regexp.last_match(1).scan(/[-+]?\d*\.?\d+/).map(&:to_f)
-          if box_values.length == 4
-            llx, lly, urx, ury = box_values
-            art_box = { llx: llx, lly: lly, urx: urx, ury: ury }
-          end
-        end
-
-        # Try BleedBox
-        if body =~ %r{/BleedBox\s*\[(.*?)\]}
-          box_values = ::Regexp.last_match(1).scan(/[-+]?\d*\.?\d+/).map(&:to_f)
-          if box_values.length == 4
-            llx, lly, urx, ury = box_values
-            bleed_box = { llx: llx, lly: lly, urx: urx, ury: ury }
-          end
-        end
-
-        # Try TrimBox
-        if body =~ %r{/TrimBox\s*\[(.*?)\]}
-          box_values = ::Regexp.last_match(1).scan(/[-+]?\d*\.?\d+/).map(&:to_f)
-          if box_values.length == 4
-            llx, lly, urx, ury = box_values
-            trim_box = { llx: llx, lly: lly, urx: urx, ury: ury }
-          end
-        end
+        # Parse other box types
+        crop_box = DictScan.parse_box(body, "CropBox")
+        art_box = DictScan.parse_box(body, "ArtBox")
+        bleed_box = DictScan.parse_box(body, "BleedBox")
+        trim_box = DictScan.parse_box(body, "TrimBox")
 
         # Extract rotation
         rotate = nil
@@ -265,6 +226,11 @@ module AcroThat
 
         ft_tok = body.include?("/FT") ? DictScan.value_token_after("/FT", body) : nil
         type = ft_tok
+
+        # Normalize button field values: "Yes" -> "/Yes" to match PDF name conventions
+        if type == "/Btn" && value == "Yes"
+          value = "/Yes"
+        end
 
         position = {}
         if is_widget

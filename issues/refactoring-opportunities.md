@@ -2,30 +2,21 @@
 
 This document identifies code duplication and unused methods that could be refactored to improve maintainability.
 
-## 1. Duplicated Page-Finding Logic
+## 1. Duplicated Page-Finding Logic ✅ **COMPLETED**
 
-### Issue
-Multiple methods have similar logic for finding page objects in a PDF document.
+### Status
+**RESOLVED** - This refactoring has been completed:
+- ✅ `DictScan.is_page?(body)` exists (line 320 in dict_scan.rb)
+- ✅ `Document#find_all_pages` exists (line 693 in document.rb)
+- ✅ `Document#find_page_by_number(page_num)` exists (line 725 in document.rb)
+- ✅ `Base#find_page_by_number` delegates to Document
+- ✅ `AddField#find_page_ref` now uses `find_page_by_number` (line 288)
 
-### Locations
-- `Document#list_pages` (lines 75-104)
-- `Document#collect_pages_from_tree` (lines 691-712)
-- `Document#find_page_number_for_ref` (lines 714-728)
-- `AddField#find_page_ref` (lines 155-211)
+### Original Issue
+Multiple methods had similar logic for finding page objects in a PDF document.
 
-### Pattern
-The pattern `body.include?("/Type /Page") || body =~ %r{/Type\s*/Page(?!s)\b}` appears in multiple places with slight variations.
-
-### Suggested Refactor
-Create a shared module or utility methods in `DictScan`:
-- `DictScan.is_page?(body)` - Check if a body represents a page object
-- `Document#find_all_pages` - Unified method to find all page objects
-- `Document#find_page_by_number(page_num)` - Find a specific page by number
-
-### Benefits
-- Single source of truth for page detection logic
-- Easier to maintain and update page-finding behavior
-- Consistent page ordering across methods
+### Resolution
+All page-finding logic has been unified into `DictScan.is_page?` and `Document#find_all_pages` / `find_page_by_number`.
 
 ---
 
@@ -97,45 +88,18 @@ Extend `DictScan` with methods:
 
 ---
 
-## 4. Duplicated Box Parsing Logic
+## 4. Duplicated Box Parsing Logic ✅ **COMPLETED**
 
-### Issue
-`Document#list_pages` has repeated code blocks for parsing different box types (MediaBox, CropBox, ArtBox, BleedBox, TrimBox).
+### Status
+**RESOLVED** - This refactoring has been completed:
+- ✅ `DictScan.parse_box(body, box_type)` exists (line 340 in dict_scan.rb)
+- ✅ `Document#list_pages` now uses `parse_box` for all box types (lines 89-99 in document.rb)
 
-### Locations
-- `Document#list_pages` (lines 120-165)
+### Original Issue
+`Document#list_pages` had repeated code blocks for parsing different box types (MediaBox, CropBox, ArtBox, BleedBox, TrimBox).
 
-### Pattern
-Each box type uses identical logic:
-```ruby
-if body =~ %r{/MediaBox\s*\[(.*?)\]}
-  box_values = ::Regexp.last_match(1).scan(/[-+]?\d*\.?\d+/).map(&:to_f)
-  if box_values.length == 4
-    llx, lly, urx, ury = box_values
-    media_box = { llx: llx, lly: lly, urx: urx, ury: ury }
-  end
-end
-```
-
-### Suggested Refactor
-Create a helper method:
-```ruby
-def parse_box(body, box_type)
-  pattern = %r{/#{box_type}\s*\[(.*?)\]}
-  return nil unless body =~ pattern
-  
-  box_values = ::Regexp.last_match(1).scan(/[-+]?\d*\.?\d+/).map(&:to_f)
-  return nil unless box_values.length == 4
-  
-  llx, lly, urx, ury = box_values
-  { llx: llx, lly: lly, urx: urx, ury: ury }
-end
-```
-
-### Benefits
-- Reduces code duplication from ~45 lines to ~10 lines per box type
-- Easier to add new box types
-- Consistent parsing logic
+### Resolution
+Extracted the common box parsing logic into `DictScan.parse_box` helper method. All box type parsing in `Document#list_pages` now uses this shared method, reducing code duplication from ~45 lines to ~10 lines while maintaining existing functionality.
 
 ---
 
@@ -145,31 +109,22 @@ end
 The `next_fresh_object_number` method is implemented identically in two places.
 
 ### Locations
-- `Document#next_fresh_object_number` (lines 730-739)
+- `Document#next_fresh_object_number` (lines 745-754)
 - `Base#next_fresh_object_number` (lines 28-37)
 
 ### Pattern
-Both methods have identical implementation:
-```ruby
-def next_fresh_object_number
-  max_obj_num = 0
-  resolver.each_object do |ref, _|
-    max_obj_num = [max_obj_num, ref[0]].max
-  end
-  patches.each do |p|
-    max_obj_num = [max_obj_num, p[:ref][0]].max
-  end
-  max_obj_num + 1
-end
-```
+Both methods have identical implementation. However, `Document` doesn't include `Base`, so both need to exist independently.
 
 ### Suggested Refactor
-- Remove `Document#next_fresh_object_number` - it's only called within `Document` but could use `Base`'s implementation
-- Or: Document already has access to resolver and patches, so remove duplication by making Document use Base's method
+- Consider whether `Document` should use `Base`'s implementation via delegation
+- Or: Keep both implementations if Document needs independent access
 
 ### Benefits
 - Single implementation
 - Consistent object numbering logic
+
+### Note
+This may be intentional since `Document` doesn't include `Base` - both classes need this functionality independently.
 
 ---
 
@@ -250,15 +205,50 @@ end
 1. **Widget Matching Logic (#2)** - Most duplicated, used in many critical operations
 2. **/Annots Array Manipulation (#3)** - Complex logic that's error-prone when duplicated
 
-### Medium Priority
-3. **Page-Finding Logic (#1)** - Used in multiple places, but less frequently
-4. **Box Parsing Logic (#4)** - Simple duplication, easy to refactor
 
 ### Low Priority
-5. **next_fresh_object_number (#5)** - Simple duplication
-6. **Object Reference Extraction (#8)** - Could improve consistency
-7. **Unused Methods (#6)** - Cleanup task
-8. **Base64 Decoding (#7)** - Minor duplication
+6. **next_fresh_object_number (#5)** - Simple duplication (may be intentional)
+7. **Object Reference Extraction (#8)** - Could improve consistency
+8. **Unused Methods (#6)** - Cleanup task (`get_widget_rect_dimensions`)
+9. **Base64 Decoding (#7)** - Minor duplication
+
+### Completed ✅
+- **Page-Finding Logic (#1)** - Successfully refactored into `DictScan.is_page?` and unified page-finding methods
+- **Checkbox Appearance Creation (#9)** - Extracted common Form XObject building logic into `build_form_xobject` helper method
+- **Box Parsing Logic (#4)** - Extracted common box parsing logic into `DictScan.parse_box` helper method
+- **PDF Metadata Formatting (#10)** - Moved `format_pdf_key` and `format_pdf_value` to `DictScan` module as shared utilities
+
+---
+
+## 9. Duplicated Checkbox Appearance Creation Logic ✅ **COMPLETED**
+
+### Status
+**RESOLVED** - This refactoring has been completed:
+- ✅ `AddField#build_form_xobject` exists (line 472 in add_field.rb)
+- ✅ `AddField#create_checkbox_yes_appearance` now uses `build_form_xobject` (line 458)
+- ✅ `AddField#create_checkbox_off_appearance` now uses `build_form_xobject` (line 469)
+
+### Original Issue
+The `create_checkbox_yes_appearance` and `create_checkbox_off_appearance` methods had duplicated Form XObject dictionary building logic.
+
+### Resolution
+Extracted the common Form XObject dictionary building logic into `build_form_xobject` helper method. Both checkbox appearance methods now use this shared method, reducing duplication while maintaining existing functionality.
+
+---
+
+## 10. PDF Metadata Formatting Methods Could Be Shared ✅ **COMPLETED**
+
+### Status
+**RESOLVED** - This refactoring has been completed:
+- ✅ `DictScan.format_pdf_key(key)` exists (line 134 in dict_scan.rb)
+- ✅ `DictScan.format_pdf_value(value)` exists (line 140 in dict_scan.rb)
+- ✅ `AddField` now uses `DictScan.format_pdf_key` and `DictScan.format_pdf_value` (lines 145-146, 195-196)
+
+### Original Issue
+The `format_pdf_key` and `format_pdf_value` methods in `AddField` were useful utility functions that could be shared across the codebase.
+
+### Resolution
+Moved `format_pdf_key` and `format_pdf_value` from `AddField` to the `DictScan` module as module functions. This makes them reusable throughout the codebase and provides a single source of truth for PDF formatting rules. `AddField` now uses these shared utilities, maintaining existing functionality while improving code reusability.
 
 ---
 

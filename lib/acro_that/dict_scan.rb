@@ -130,6 +130,42 @@ module AcroThat
       end
     end
 
+    # Format a metadata key as a PDF dictionary key (ensure it starts with /)
+    def format_pdf_key(key)
+      key_str = key.to_s
+      key_str.start_with?("/") ? key_str : "/#{key_str}"
+    end
+
+    # Format a metadata value appropriately for PDF
+    def format_pdf_value(value)
+      case value
+      when Integer, Float
+        value.to_s
+      when String
+        # If it looks like a PDF string (starts with parenthesis or angle bracket), use as-is
+        if value.start_with?("(") || value.start_with?("<") || value.start_with?("/")
+          value
+        else
+          # Otherwise encode as a PDF string
+          encode_pdf_string(value)
+        end
+      when Array
+        # Array format: [item1 item2 item3]
+        items = value.map { |v| format_pdf_value(v) }.join(" ")
+        "[#{items}]"
+      when Hash
+        # Dictionary format: << /Key1 value1 /Key2 value2 >>
+        dict = value.map do |k, v|
+          pdf_key = format_pdf_key(k)
+          pdf_val = format_pdf_value(v)
+          "  #{pdf_key} #{pdf_val}"
+        end.join("\n")
+        "<<\n#{dict}\n>>"
+      else
+        value.to_s
+      end
+    end
+
     def value_token_after(key, dict_src)
       # Find key followed by delimiter (whitespace, (, <, [, /)
       # Use regex to ensure key is a complete token
@@ -333,6 +369,19 @@ module AcroThat
       ff_value = ff_tok.to_i
       # Bit 12 (0x1000) indicates multiline text field
       ff_value.anybits?(0x1000)
+    end
+
+    # Parse a box array (MediaBox, CropBox, ArtBox, BleedBox, TrimBox, etc.)
+    # Returns a hash with keys :llx, :lly, :urx, :ury, or nil if not found/invalid
+    def parse_box(body, box_type)
+      pattern = %r{/#{box_type}\s*\[(.*?)\]}
+      return nil unless body =~ pattern
+
+      box_values = ::Regexp.last_match(1).scan(/[-+]?\d*\.?\d+/).map(&:to_f)
+      return nil unless box_values.length == 4
+
+      llx, lly, urx, ury = box_values
+      { llx: llx, lly: lly, urx: urx, ury: ury }
     end
 
     # Remove /AP (appearance stream) entry from a dictionary

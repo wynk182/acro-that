@@ -129,6 +129,36 @@ module AcroThat
         # Also update any widget annotations that reference this field via /Parent
         update_widget_annotations_for_field(field_ref, @new_value)
 
+        # If this is a checkbox without appearance streams, create them
+        if fld.button_field?
+          # Check if it's a checkbox (not a radio button) by checking field flags
+          field_body = get_object_body_with_patch(field_ref)
+          is_radio = false
+          if field_body
+            field_flags_match = field_body.match(%r{/Ff\s+(\d+)})
+            if field_flags_match
+              field_flags = field_flags_match[1].to_i
+              # Radio button flag is bit 15 = 32768
+              is_radio = field_flags.anybits?(32_768)
+            end
+          end
+
+          # Only create checkbox appearances (not radio buttons)
+          unless is_radio
+            widget_ref = find_checkbox_widget(fld.ref)
+            if widget_ref
+              widget_body = get_object_body_with_patch(widget_ref)
+              # Create appearances if /AP doesn't exist
+              unless widget_body&.include?("/AP")
+                rect = extract_widget_rect(widget_body)
+                if rect && rect[:width].positive? && rect[:height].positive?
+                  add_checkbox_appearance(widget_ref, rect[:width], rect[:height])
+                end
+              end
+            end
+          end
+        end
+
         # Best-effort: set NeedAppearances to true so viewers regenerate appearances
         ensure_need_appearances
 
@@ -144,8 +174,22 @@ module AcroThat
         # Ensure we have a valid dictionary
         return dict_body unless dict_body&.include?("<<")
 
-        # Encode the new value
-        v_token = DictScan.encode_pdf_string(new_value)
+        # For checkboxes (/Btn fields), normalize value to "Yes" or "Off"
+        ft_pattern = %r{/FT\s+/Btn}
+        is_button_field = ft_pattern.match(dict_body)
+
+        normalized_value = if is_button_field
+                             # For checkboxes/radio buttons, normalize to "Yes" or "Off"
+                             # Accept "Yes", "/Yes" (PDF name format), true (boolean), or "true" (string)
+                             value_str = new_value.to_s
+                             is_checked = ["Yes", "/Yes", "true"].include?(value_str) || new_value == true
+                             is_checked ? "Yes" : "Off"
+                           else
+                             new_value
+                           end
+
+        # Encode the normalized value
+        v_token = DictScan.encode_pdf_string(normalized_value)
 
         # Find /V using pattern matching to ensure we get the complete key
         v_key_pattern = %r{/V(?=[\s(<\[/])}
@@ -166,24 +210,34 @@ module AcroThat
 
         # Update /AS for checkboxes/radio buttons if needed
         # Check for /FT /Btn more carefully
-        ft_pattern = %r{/FT\s+/Btn}
-        if ft_pattern.match(patched) && (as_needed = DictScan.appearance_choice_for(new_value, patched))
-          as_pattern = %r{/AS(?=[\s(<\[/])}
-          has_as = patched.match(as_pattern)
+        if ft_pattern.match(patched)
+          # For button fields, set /AS based on normalized value
+          as_value = if normalized_value == "Yes"
+                       "/Yes"
+                     else
+                       "/Off"
+                     end
 
-          patched = if has_as
-                      DictScan.replace_key_value(patched, "/AS", as_needed)
-                    else
-                      DictScan.upsert_key_value(patched, "/AS", as_needed)
-                    end
+          # Only set /AS if /AP exists (appearance dictionary is present)
+          # If /AP doesn't exist, we can't set /AS properly
+          if patched.include?("/AP")
+            as_pattern = %r{/AS(?=[\s(<\[/])}
+            has_as = patched.match(as_pattern)
 
-          # Verify /AS replacement worked
-          unless patched && patched.include?("<<") && patched.include?(">>")
-            warn "Warning: Dictionary corrupted after /AS replacement"
-            # Revert to before /AS change
-            return DictScan.replace_key_value(dict_body, "/V", v_token) if has_v
+            patched = if has_as
+                        DictScan.replace_key_value(patched, "/AS", as_value)
+                      else
+                        DictScan.upsert_key_value(patched, "/AS", as_value)
+                      end
 
-            return dict_body
+            # Verify /AS replacement worked
+            unless patched && patched.include?("<<") && patched.include?(">>")
+              warn "Warning: Dictionary corrupted after /AS replacement"
+              # Revert to before /AS change
+              return DictScan.replace_key_value(dict_body, "/V", v_token) if has_v
+
+              return dict_body
+            end
           end
         end
 
@@ -295,6 +349,184 @@ module AcroThat
         return false unless field_body
 
         DictScan.is_multiline_field?(field_body)
+      end
+
+      def find_checkbox_widget(field_ref)
+        # Check patches first
+        patches = @document.instance_variable_get(:@patches)
+        patches.each do |patch|
+          next unless patch[:body]
+          next unless DictScan.is_widget?(patch[:body])
+
+          # Check if widget has /Parent pointing to field_ref
+          if patch[:body] =~ %r{/Parent\s+(\d+)\s+(\d+)\s+R}
+            parent_ref = [Integer(::Regexp.last_match(1)), Integer(::Regexp.last_match(2))]
+            return patch[:ref] if parent_ref == field_ref
+          end
+
+          # Also check if widget IS the field (flat structure)
+          if patch[:body].include?("/FT") && DictScan.value_token_after("/FT",
+                                                                        patch[:body]) == "/Btn" && (patch[:ref] == field_ref)
+            return patch[:ref]
+          end
+        end
+
+        # Then check resolver (for existing widgets)
+        resolver.each_object do |ref, body|
+          next unless body && DictScan.is_widget?(body)
+
+          # Check if widget has /Parent pointing to field_ref
+          if body =~ %r{/Parent\s+(\d+)\s+(\d+)\s+R}
+            parent_ref = [Integer(::Regexp.last_match(1)), Integer(::Regexp.last_match(2))]
+            return ref if parent_ref == field_ref
+          end
+
+          # Also check if widget IS the field (flat structure)
+          if body.include?("/FT") && DictScan.value_token_after("/FT", body) == "/Btn" && (ref == field_ref)
+            return ref
+          end
+        end
+
+        # Fallback: if field_ref itself is a widget
+        body = get_object_body_with_patch(field_ref)
+        return field_ref if body && DictScan.is_widget?(body) && body.include?("/FT") && DictScan.value_token_after(
+          "/FT", body
+        ) == "/Btn"
+
+        nil
+      end
+
+      def extract_widget_rect(widget_body)
+        return nil unless widget_body
+
+        rect_tok = DictScan.value_token_after("/Rect", widget_body)
+        return nil unless rect_tok&.start_with?("[")
+
+        rect_values = rect_tok.scan(/[-+]?\d*\.?\d+/).map(&:to_f)
+        return nil unless rect_values.length == 4
+
+        x1, y1, x2, y2 = rect_values
+        width = (x2 - x1).abs
+        height = (y2 - y1).abs
+
+        return nil if width <= 0 || height <= 0
+
+        { x: x1, y: y1, width: width, height: height }
+      end
+
+      def add_checkbox_appearance(widget_ref, width, height)
+        # Create appearance form XObjects for Yes and Off states
+        yes_obj_num = next_fresh_object_number
+        off_obj_num = yes_obj_num + 1
+
+        # Create Yes appearance (checked box with checkmark)
+        yes_body = create_checkbox_yes_appearance(width, height)
+        @document.instance_variable_get(:@patches) << { ref: [yes_obj_num, 0], body: yes_body }
+
+        # Create Off appearance (empty box)
+        off_body = create_checkbox_off_appearance(width, height)
+        @document.instance_variable_get(:@patches) << { ref: [off_obj_num, 0], body: off_body }
+
+        # Get current widget body and add /AP dictionary
+        original_widget_body = get_object_body_with_patch(widget_ref)
+        widget_body = original_widget_body.dup
+
+        # Create /AP dictionary with Yes and Off appearances
+        ap_dict = "<<\n  /N <<\n    /Yes #{yes_obj_num} 0 R\n    /Off #{off_obj_num} 0 R\n  >>\n>>"
+
+        # Add /AP to widget
+        if widget_body.include?("/AP")
+          # Replace existing /AP
+          ap_key_pattern = %r{/AP(?=[\s(<\[/])}
+          if widget_body.match(ap_key_pattern)
+            widget_body = DictScan.replace_key_value(widget_body, "/AP", ap_dict)
+          end
+        else
+          # Insert /AP before closing >>
+          widget_body = DictScan.upsert_key_value(widget_body, "/AP", ap_dict)
+        end
+
+        # Set /AS based on the value - use the EXACT same normalization logic as widget creation
+        # This ensures consistency between /V and /AS
+        # Normalize value: "Yes" if truthy (Yes, "/Yes", true, etc.), otherwise "Off"
+        value_str = @new_value.to_s
+        is_checked = value_str == "Yes" || value_str == "/Yes" || value_str == "true" || @new_value == true
+        normalized_value = is_checked ? "Yes" : "Off"
+
+        # Set /AS to match normalized value (same as what was set for /V in widget creation)
+        as_value = if normalized_value == "Yes"
+                     "/Yes"
+                   else
+                     "/Off"
+                   end
+
+        widget_body = if widget_body.include?("/AS")
+                        DictScan.replace_key_value(widget_body, "/AS", as_value)
+                      else
+                        DictScan.upsert_key_value(widget_body, "/AS", as_value)
+                      end
+
+        apply_patch(widget_ref, widget_body, original_widget_body)
+      end
+
+      def create_checkbox_yes_appearance(width, height)
+        # Create a form XObject that draws a checked checkbox
+        # Box outline + checkmark
+        # Scale to match width and height
+        # Simple appearance: draw a box and a checkmark
+        # For simplicity, use PDF drawing operators
+        # Box: rectangle from (0,0) to (width, height)
+        # Checkmark: simple path drawing
+
+        # PDF content stream for checked checkbox
+        # Draw just the checkmark (no box border)
+        border_width = [width * 0.08, height * 0.08].min
+
+        # Calculate checkmark path
+        check_x1 = width * 0.25
+        check_y1 = height * 0.45
+        check_x2 = width * 0.45
+        check_y2 = height * 0.25
+        check_x3 = width * 0.75
+        check_y3 = height * 0.75
+
+        content_stream = "q\n"
+        content_stream += "0 0 0 rg\n" # Black color (darker)
+        content_stream += "#{border_width} w\n" # Line width
+        # Draw checkmark only (no box border)
+        content_stream += "#{check_x1} #{check_y1} m\n"
+        content_stream += "#{check_x2} #{check_y2} l\n"
+        content_stream += "#{check_x3} #{check_y3} l\n"
+        content_stream += "S\n" # Stroke
+        content_stream += "Q\n"
+
+        build_form_xobject(content_stream, width, height)
+      end
+
+      def create_checkbox_off_appearance(width, height)
+        # Create a form XObject for unchecked checkbox
+        # Empty appearance (no border, no checkmark) - viewer will draw default checkbox
+
+        content_stream = "q\n"
+        # Empty appearance for unchecked state
+        content_stream += "Q\n"
+
+        build_form_xobject(content_stream, width, height)
+      end
+
+      def build_form_xobject(content_stream, width, height)
+        # Build a Form XObject dictionary with the given content stream
+        dict = "<<\n"
+        dict += "  /Type /XObject\n"
+        dict += "  /Subtype /Form\n"
+        dict += "  /BBox [0 0 #{width} #{height}]\n"
+        dict += "  /Length #{content_stream.bytesize}\n"
+        dict += ">>\n"
+        dict += "stream\n"
+        dict += content_stream
+        dict += "\nendstream"
+
+        dict
       end
     end
   end
