@@ -3,11 +3,12 @@
 require "spec_helper"
 require "stringio"
 require "tempfile"
+require "base64"
 
 RSpec.describe "PDF Form Editing" do
   # Helper to load a PDF file from examples folder
   def load_example_pdf(filename)
-    File.join(__dir__, "examples", filename)
+    File.join(__dir__, "fixtures", filename)
   end
 
   # Helper to create Document from file path
@@ -364,6 +365,103 @@ RSpec.describe "PDF Form Editing" do
           content = File.binread(temp_file.path)
           expect(content).to include("xref")
           expect(content).to include("trailer")
+        ensure
+          temp_file.unlink
+        end
+      end
+
+      it "can add image appearance to signature field" do
+        doc = create_document_from_path(example_pdf)
+
+        # Add a signature field
+        sig_field = doc.add_field("TestSignature", type: :signature, x: 100, y: 500, width: 200, height: 100, page: 1)
+        expect(sig_field).not_to be_nil
+        expect(sig_field.signature_field?).to be true
+
+        # Create a minimal 1x1 pixel red JPEG in base64
+        # This is a valid minimal JPEG (FF D8 FF E0 ... JFIF header)
+        minimal_jpeg_hex = "FFD8FFE000104A46494600010101006000600000FFDB00430008060606060508060707060808080A0A0A0B0C0C0C0B0C0D0E0E0E0D0E12111212110E14141414141419191919191923232323232323232323FFC00011080001000103012200022101031101FFC40014000100000000000000000000000000000008FFC40014100100000000000000000000000000000000FFDA000C03010002110311003F00FFD9"
+        minimal_jpeg_data = [minimal_jpeg_hex].pack("H*")
+
+        # Encode as base64
+        base64_image = Base64.encode64(minimal_jpeg_data).strip
+
+        # Update signature field with image data (base64 string)
+        result = doc.update_field("TestSignature", base64_image)
+        expect(result).to be true
+
+        # Write to temp file and verify
+        temp_file = Tempfile.new(["test_signature_appearance", ".pdf"])
+        begin
+          doc.write(temp_file.path)
+
+          # Reload and verify the PDF contains appearance stream
+          doc2 = AcroThat::Document.new(temp_file.path)
+
+          # Find the widget annotation for the signature field
+          fields = doc2.list_fields
+          test_field = fields.find { |f| f.name == "TestSignature" }
+          expect(test_field).not_to be_nil
+          expect(test_field.signature_field?).to be true
+
+          # Check widget annotation directly by reading the object
+          widget_ref = [test_field.ref[0] + 1, 0]
+          resolver = doc2.instance_variable_get(:@resolver)
+          widget_body = resolver.object_body(widget_ref)
+
+          # Verify appearance was added by checking the widget annotation
+          expect(widget_body).to match(%r{/AP\s*<<})
+          expect(widget_body).to include("/N")
+
+          # Check if form XObject exists by checking for the reference in /AP
+          if widget_body =~ %r{/AP\s*<<\s*/N\s+(\d+)\s+(\d+)\s+R}
+            form_ref = [Integer(Regexp.last_match(1)), Integer(Regexp.last_match(2))]
+            form_body = resolver.object_body(form_ref)
+            expect(form_body).to include("/Type /XObject")
+            expect(form_body).to include("/Subtype /Form")
+          end
+        ensure
+          temp_file.unlink
+        end
+      end
+
+      it "can add image appearance to signature field using data URI format" do
+        doc = create_document_from_path(example_pdf)
+
+        # Add a signature field
+        sig_field = doc.add_field("TestSignature2", type: :signature, x: 100, y: 600, width: 150, height: 80, page: 1)
+        expect(sig_field).not_to be_nil
+
+        # Create minimal JPEG and encode as data URI
+        minimal_jpeg_hex = "FFD8FFE000104A46494600010101006000600000FFDB00430008060606060508060707060808080A0A0A0B0C0C0C0B0C0D0E0E0E0D0E12111212110E14141414141419191919191923232323232323232323FFC00011080001000103012200022101031101FFC40014000100000000000000000000000000000008FFC40014100100000000000000000000000000000000FFDA000C03010002110311003F00FFD9"
+        minimal_jpeg_data = [minimal_jpeg_hex].pack("H*")
+        base64_image = Base64.encode64(minimal_jpeg_data).strip
+        data_uri = "data:image/jpeg;base64,#{base64_image}"
+
+        # Update signature field with data URI
+        result = doc.update_field("TestSignature2", data_uri)
+        expect(result).to be true
+
+        # Write to temp file and verify
+        temp_file = Tempfile.new(["test_signature_data_uri", ".pdf"])
+        begin
+          doc.write(temp_file.path)
+
+          # Reload and verify appearance was added
+          doc2 = AcroThat::Document.new(temp_file.path)
+
+          # Find the widget annotation for the signature field
+          fields = doc2.list_fields
+          test_field = fields.find { |f| f.name == "TestSignature2" }
+          expect(test_field).not_to be_nil
+
+          # Check widget annotation directly
+          widget_ref = [test_field.ref[0] + 1, 0]
+          resolver = doc2.instance_variable_get(:@resolver)
+          widget_body = resolver.object_body(widget_ref)
+
+          expect(widget_body).to match(%r{/AP\s*<<})
+          expect(widget_body).to include("/N")
         ensure
           temp_file.unlink
         end

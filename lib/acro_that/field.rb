@@ -21,10 +21,10 @@ module AcroThat
       @value = value
       # Normalize type: accept symbol keys or type strings, default to "/Tx"
       normalized_type = if type.is_a?(Symbol)
-                         TYPES[type] || "/Tx"
-                       else
-                         type.to_s.strip
-                       end
+                          TYPES[type] || "/Tx"
+                        else
+                          type.to_s.strip
+                        end
       @type = normalized_type.empty? ? "/Tx" : normalized_type
       @ref = ref
       @document = document

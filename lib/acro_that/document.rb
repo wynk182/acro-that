@@ -110,14 +110,14 @@ module AcroThat
           field_widgets[parent_ref] << widget_info
         end
 
-        if body.include?("/T")
-          t_tok = DictScan.value_token_after("/T", body)
-          if t_tok
-            widget_name = DictScan.decode_pdf_string(t_tok)
-            if widget_name && !widget_name.empty?
-              widgets_by_name[widget_name] ||= []
-              widgets_by_name[widget_name] << widget_info
-            end
+        next unless body.include?("/T")
+
+        t_tok = DictScan.value_token_after("/T", body)
+        if t_tok
+          widget_name = DictScan.decode_pdf_string(t_tok)
+          if widget_name && !widget_name.empty?
+            widgets_by_name[widget_name] ||= []
+            widgets_by_name[widget_name] << widget_info
           end
         end
       end
@@ -230,7 +230,33 @@ module AcroThat
 
     # Update field by name, setting /V and optionally /AS on widgets
     def update_field(name, new_value, new_name: nil)
+      # First try to find in list_fields (already written fields)
       field = list_fields.find { |f| f.name == name }
+
+      # If not found, check if field was just added (in patches) and create a Field object for it
+      unless field
+        patches = @patches
+        field_patch = patches.find do |p|
+          next unless p[:body]
+          next unless p[:body].include?("/T")
+
+          t_tok = DictScan.value_token_after("/T", p[:body])
+          next unless t_tok
+
+          field_name = DictScan.decode_pdf_string(t_tok)
+          field_name == name
+        end
+
+        if field_patch && field_patch[:body].include?("/FT")
+          ft_tok = DictScan.value_token_after("/FT", field_patch[:body])
+          if ft_tok
+            # Create a temporary Field object for newly added field
+            position = {}
+            field = Field.new(name, nil, ft_tok, field_patch[:ref], self, position)
+          end
+        end
+      end
+
       return false unless field
 
       field.update(new_value, new_name: new_name)

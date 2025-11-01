@@ -3,6 +3,7 @@
 require "strscan"
 require "stringio"
 require "zlib"
+require "base64"
 
 require_relative "acro_that/dict_scan"
 require_relative "acro_that/object_resolver"
@@ -17,6 +18,7 @@ require_relative "acro_that/actions/base"
 require_relative "acro_that/actions/add_field"
 require_relative "acro_that/actions/update_field"
 require_relative "acro_that/actions/remove_field"
+require_relative "acro_that/actions/add_signature_appearance"
 
 module AcroThat
 end

@@ -1,12 +1,13 @@
 # AcroThat
 
-A minimal pure Ruby library for parsing and editing PDF AcroForm fields using only Ruby stdlib.
+A minimal pure Ruby library for parsing and editing PDF AcroForm fields.
 
 ## Features
 
-- ✅ **Pure Ruby** - No external dependencies beyond stdlib
+- ✅ **Pure Ruby** - Minimal dependencies (only `chunky_png` for PNG image processing)
 - ✅ **StringIO Only** - Works entirely in memory, no temp files
 - ✅ **PDF AcroForm Support** - Parse, list, add, remove, and modify form fields
+- ✅ **Signature Field Images** - Add image appearances to signature fields (JPEG and PNG support)
 - ✅ **Minimal PDF Engine** - Basic PDF parser/writer for AcroForm manipulation
 - ✅ **Ruby 3.1+** - Modern Ruby support
 
@@ -138,6 +139,42 @@ field.has_value?
 field.has_position?
 ```
 
+#### Signature Fields with Image Appearances
+
+Signature fields can be enhanced with image appearances (signature images). When you update a signature field with image data (base64-encoded JPEG or PNG), AcroThat will automatically add the image as the field's appearance.
+
+```ruby
+doc = AcroThat::Document.new("form.pdf")
+
+# Add a signature field
+sig_field = doc.add_field("MySignature", 
+  type: :signature,
+  x: 100,
+  y: 500,
+  width: 200,
+  height: 100,
+  page: 1
+)
+
+# Update signature field with base64-encoded image data
+# JPEG example:
+jpeg_base64 = Base64.encode64(File.binread("signature.jpg")).strip
+doc.update_field("MySignature", jpeg_base64)
+
+# PNG example (requires chunky_png gem):
+png_base64 = Base64.encode64(File.binread("signature.png")).strip
+doc.update_field("MySignature", png_base64)
+
+# Or using data URI format:
+data_uri = "data:image/png;base64,#{png_base64}"
+doc.update_field("MySignature", data_uri)
+
+# Write the PDF with the signature appearance
+doc.write("form_with_signature.pdf")
+```
+
+**Note**: PNG image processing requires the `chunky_png` gem, which is included as a dependency. JPEG images can be processed without any additional dependencies.
+
 #### Flattening PDFs
 
 ```ruby
@@ -195,11 +232,15 @@ field = doc.add_field("ButtonField", type: "/Btn", x: 100, y: 500, width: 20, he
 ```
 
 #### `#update_field(name, new_value, new_name: nil)`
-Updates a field's value and optionally renames it. Returns `true` if successful, `false` if field not found.
+Updates a field's value and optionally renames it. For signature fields, if `new_value` looks like image data (base64-encoded JPEG/PNG or a data URI), it will automatically add the image as the field's appearance. Returns `true` if successful, `false` if field not found.
 
 ```ruby
 doc.update_field("FieldName", "New Value")
 doc.update_field("OldName", "New Value", new_name: "NewName")
+
+# For signature fields with images:
+doc.update_field("SignatureField", base64_image_data)  # Base64-encoded JPEG or PNG
+doc.update_field("SignatureField", "data:image/png;base64,...")  # Data URI format
 ```
 
 #### `#remove_field(name_or_field)`
@@ -301,6 +342,10 @@ This is a minimal implementation focused on AcroForm manipulation. It does not s
 - Digital signatures (though signature fields can be added)
 - JavaScript or other interactive features
 - Form submission/validation logic
+
+## Dependencies
+
+- **chunky_png** (~> 1.4): Required for PNG image processing in signature field appearances. JPEG images can be processed without this dependency, but PNG support requires it.
 
 ## Development
 

@@ -14,8 +14,47 @@ module AcroThat
       end
 
       def call
+        # First try to find in list_fields (already written fields)
         fld = @document.list_fields.find { |f| f.name == @name }
+
+        # If not found, check if field was just added (in patches) and create a Field object for it
+        unless fld
+          patches = @document.instance_variable_get(:@patches)
+          field_patch = patches.find do |p|
+            next unless p[:body]
+            next unless p[:body].include?("/T")
+
+            t_tok = DictScan.value_token_after("/T", p[:body])
+            next unless t_tok
+
+            field_name = DictScan.decode_pdf_string(t_tok)
+            field_name == @name
+          end
+
+          if field_patch && field_patch[:body].include?("/FT")
+            ft_tok = DictScan.value_token_after("/FT", field_patch[:body])
+            if ft_tok
+              # Create a temporary Field object for newly added field
+              position = {}
+              fld = Field.new(@name, nil, ft_tok, field_patch[:ref], @document, position)
+            end
+          end
+        end
+
         return false unless fld
+
+        # Check if this is a signature field and if new_value looks like image data
+        if fld.signature_field?
+          # Check if new_value looks like base64 image data or data URI
+          image_data = @new_value
+          if image_data && image_data.is_a?(String) && (image_data.start_with?("data:image/") || (image_data.length > 50 && image_data.match?(%r{^[A-Za-z0-9+/]*={0,2}$})))
+            # Try adding signature appearance
+            action = Actions::AddSignatureAppearance.new(@document, fld.ref, image_data)
+            result = action.call
+            return result if result
+            # If appearance fails, fall through to normal update
+          end
+        end
 
         original = get_object_body_with_patch(fld.ref)
         return false unless original
