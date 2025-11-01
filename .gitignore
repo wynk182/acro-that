@@ -2,6 +2,7 @@
 .rspec_status
 
 *.pdf
+*.gem
 
 research/
 pdf_test_script.rb
