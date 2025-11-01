@@ -1,0 +1,183 @@
+#!/bin/bash
+
+set -e  # Exit on any error
+
+VERSION_FILE="lib/acro_that/version.rb"
+GEMSPEC_FILE="acro_that.gemspec"
+GEM_NAME="acro_that"
+
+# Function to show usage
+usage() {
+    cat << EOF
+Usage: $0 [OPTIONS]
+
+Publish acro_that gem to RubyGems.
+
+OPTIONS:
+    -b, --bump TYPE        Bump version before publishing (major|minor|patch)
+    -k, --key KEY         RubyGems API key name (optional, uses credentials if not provided)
+    -h, --help            Show this help message
+
+EXAMPLES:
+    $0                     # Publish current version without bumping
+    $0 -b patch            # Bump patch version (0.1.2 -> 0.1.3)
+    $0 -b minor            # Bump minor version (0.1.2 -> 0.2.0)
+    $0 -b major            # Bump major version (0.1.2 -> 1.0.0)
+    $0 -b patch -k mykey   # Bump patch and use specific API key
+
+EOF
+    exit 1
+}
+
+# Function to get current version
+get_current_version() {
+    if [[ ! -f "$VERSION_FILE" ]]; then
+        echo "Error: $VERSION_FILE not found!" >&2
+        exit 1
+    fi
+    
+    # Extract version using awk (works reliably on both macOS and Linux)
+    awk -F'"' '/VERSION =/ {print $2}' "$VERSION_FILE"
+}
+
+# Function to bump version
+bump_version() {
+    local bump_type=$1
+    local current_version=$(get_current_version)
+    
+    IFS='.' read -ra VERSION_PARTS <<< "$current_version"
+    local major=${VERSION_PARTS[0]:-0}
+    local minor=${VERSION_PARTS[1]:-0}
+    local patch=${VERSION_PARTS[2]:-0}
+    
+    case "$bump_type" in
+        major)
+            major=$((major + 1))
+            minor=0
+            patch=0
+            ;;
+        minor)
+            minor=$((minor + 1))
+            patch=0
+            ;;
+        patch)
+            patch=$((patch + 1))
+            ;;
+        *)
+            echo "Error: Invalid bump type: $bump_type" >&2
+            echo "Must be one of: major, minor, patch" >&2
+            exit 1
+            ;;
+    esac
+    
+    local new_version="${major}.${minor}.${patch}"
+    
+    # Update version in version.rb
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        # macOS uses BSD sed
+        sed -i '' "s/VERSION = \".*\"/VERSION = \"$new_version\"/" "$VERSION_FILE"
+    else
+        # Linux uses GNU sed
+        sed -i "s/VERSION = \".*\"/VERSION = \"$new_version\"/" "$VERSION_FILE"
+    fi
+    
+    echo "$new_version"
+}
+
+# Parse arguments
+BUMP_TYPE=""
+API_KEY=""
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -b|--bump)
+            BUMP_TYPE="$2"
+            shift 2
+            ;;
+        -k|--key)
+            API_KEY="$2"
+            shift 2
+            ;;
+        -h|--help)
+            usage
+            ;;
+        *)
+            echo "Error: Unknown option: $1" >&2
+            usage
+            ;;
+    esac
+done
+
+# Validate bump type if provided
+if [[ -n "$BUMP_TYPE" ]]; then
+    if [[ ! "$BUMP_TYPE" =~ ^(major|minor|patch)$ ]]; then
+        echo "Error: Invalid bump type: $BUMP_TYPE" >&2
+        echo "Must be one of: major, minor, patch" >&2
+        exit 1
+    fi
+fi
+
+# Get version (after potential bump)
+if [[ -n "$BUMP_TYPE" ]]; then
+    echo "Bumping $BUMP_TYPE version..."
+    VERSION=$(bump_version "$BUMP_TYPE")
+    echo "New version: $VERSION"
+else
+    VERSION=$(get_current_version)
+    echo "Using current version: $VERSION"
+fi
+
+# Build the gem
+echo "Building gem..."
+GEM_FILE="${GEM_NAME}-${VERSION}.gem"
+gem build "$GEMSPEC_FILE"
+
+if [[ ! -f "$GEM_FILE" ]]; then
+    echo "Error: Failed to build gem file: $GEM_FILE" >&2
+    exit 1
+fi
+
+echo "Gem built successfully: $GEM_FILE"
+
+# Push to RubyGems
+echo "Pushing to RubyGems..."
+if [[ -n "$API_KEY" ]]; then
+    gem push "$GEM_FILE" --key "$API_KEY"
+else
+    gem push "$GEM_FILE"
+fi
+
+if [[ $? -ne 0 ]]; then
+    echo "Error: Failed to push gem to RubyGems" >&2
+    exit 1
+fi
+
+echo "Gem pushed to RubyGems successfully"
+
+# Commit and push to git (only if version was bumped or if there are changes)
+if [[ -n "$BUMP_TYPE" ]] || ! git diff --quiet "$VERSION_FILE"; then
+    echo "Committing version change..."
+    git add "$VERSION_FILE"
+    git commit -m "v${VERSION}"
+    
+    echo "Creating and pushing tag..."
+    git tag -a "v${VERSION}" -m "Release version ${VERSION}"
+    
+    echo "Pushing to origin..."
+    git push origin main
+    git push origin "v${VERSION}"
+    
+    echo "Git operations completed successfully"
+else
+    echo "No version changes to commit"
+fi
+
+echo ""
+echo "✅ Successfully published ${GEM_NAME} v${VERSION}!"
+echo "   - Gem built: ${GEM_FILE}"
+echo "   - Pushed to RubyGems"
+if [[ -n "$BUMP_TYPE" ]]; then
+    echo "   - Version bumped and committed"
+    echo "   - Tagged as v${VERSION}"
+fi
+

@@ -71,6 +71,154 @@ module AcroThat
       self
     end
 
+    # Return an array of page information (page number, width, height, ref, metadata)
+    def list_pages
+      pages = []
+      page_objects = []
+
+      # Try to get pages in document order via page tree first
+      root_ref = @resolver.root_ref
+      if root_ref
+        catalog_body = @resolver.object_body(root_ref)
+        if catalog_body && catalog_body =~ %r{/Pages\s+(\d+)\s+(\d+)\s+R}
+          pages_ref = [Integer(::Regexp.last_match(1)), Integer(::Regexp.last_match(2))]
+
+          # Recursively collect pages from page tree
+          collect_pages_from_tree(pages_ref, page_objects)
+        end
+      end
+
+      # Fallback: collect all page objects if page tree didn't work
+      if page_objects.empty?
+        @resolver.each_object do |ref, body|
+          next unless body
+
+          # Match /Type /Page or /Type/Page but NOT /Type/Pages
+          is_page = body.include?("/Type /Page") || body =~ %r{/Type\s*/Page(?!s)\b}
+          next unless is_page
+
+          page_objects << ref unless page_objects.include?(ref)
+        end
+
+        # Sort by object number as fallback
+        page_objects.sort_by! { |ref| ref[0] }
+      end
+
+      # Second pass: extract information from each page
+      page_objects.each_with_index do |ref, index|
+        body = @resolver.object_body(ref)
+        next unless body
+
+        # Extract MediaBox, CropBox, or ArtBox for dimensions
+        width = nil
+        height = nil
+        media_box = nil
+        crop_box = nil
+        art_box = nil
+        bleed_box = nil
+        trim_box = nil
+
+        # Try MediaBox first (most common)
+        if body =~ %r{/MediaBox\s*\[(.*?)\]}
+          box_values = ::Regexp.last_match(1).scan(/[-+]?\d*\.?\d+/).map(&:to_f)
+          if box_values.length == 4
+            llx, lly, urx, ury = box_values
+            width = urx - llx
+            height = ury - lly
+            media_box = { llx: llx, lly: lly, urx: urx, ury: ury }
+          end
+        end
+
+        # Try CropBox
+        if body =~ %r{/CropBox\s*\[(.*?)\]}
+          box_values = ::Regexp.last_match(1).scan(/[-+]?\d*\.?\d+/).map(&:to_f)
+          if box_values.length == 4
+            llx, lly, urx, ury = box_values
+            crop_box = { llx: llx, lly: lly, urx: urx, ury: ury }
+          end
+        end
+
+        # Try ArtBox
+        if body =~ %r{/ArtBox\s*\[(.*?)\]}
+          box_values = ::Regexp.last_match(1).scan(/[-+]?\d*\.?\d+/).map(&:to_f)
+          if box_values.length == 4
+            llx, lly, urx, ury = box_values
+            art_box = { llx: llx, lly: lly, urx: urx, ury: ury }
+          end
+        end
+
+        # Try BleedBox
+        if body =~ %r{/BleedBox\s*\[(.*?)\]}
+          box_values = ::Regexp.last_match(1).scan(/[-+]?\d*\.?\d+/).map(&:to_f)
+          if box_values.length == 4
+            llx, lly, urx, ury = box_values
+            bleed_box = { llx: llx, lly: lly, urx: urx, ury: ury }
+          end
+        end
+
+        # Try TrimBox
+        if body =~ %r{/TrimBox\s*\[(.*?)\]}
+          box_values = ::Regexp.last_match(1).scan(/[-+]?\d*\.?\d+/).map(&:to_f)
+          if box_values.length == 4
+            llx, lly, urx, ury = box_values
+            trim_box = { llx: llx, lly: lly, urx: urx, ury: ury }
+          end
+        end
+
+        # Extract rotation
+        rotate = nil
+        if body =~ %r{/Rotate\s+(\d+)}
+          rotate = Integer(::Regexp.last_match(1))
+        end
+
+        # Extract Resources reference
+        resources_ref = nil
+        if body =~ %r{/Resources\s+(\d+)\s+(\d+)\s+R}
+          resources_ref = [Integer(::Regexp.last_match(1)), Integer(::Regexp.last_match(2))]
+        end
+
+        # Extract Parent reference
+        parent_ref = nil
+        if body =~ %r{/Parent\s+(\d+)\s+(\d+)\s+R}
+          parent_ref = [Integer(::Regexp.last_match(1)), Integer(::Regexp.last_match(2))]
+        end
+
+        # Extract Contents reference(s)
+        contents_refs = []
+        if body =~ %r{/Contents\s+(\d+)\s+(\d+)\s+R}
+          contents_refs << [Integer(::Regexp.last_match(1)), Integer(::Regexp.last_match(2))]
+        elsif body =~ %r{/Contents\s*\[(.*?)\]}
+          contents_array = ::Regexp.last_match(1)
+          contents_array.scan(/(\d+)\s+(\d+)\s+R/) do |num_str, gen_str|
+            contents_refs << [num_str.to_i, gen_str.to_i]
+          end
+        end
+
+        # Build metadata hash
+        metadata = {
+          rotate: rotate,
+          media_box: media_box,
+          crop_box: crop_box,
+          art_box: art_box,
+          bleed_box: bleed_box,
+          trim_box: trim_box,
+          resources_ref: resources_ref,
+          parent_ref: parent_ref,
+          contents_refs: contents_refs
+        }
+
+        pages << {
+          page: index + 1, # Page number starting at 1
+          width: width,
+          height: height,
+          ref: ref,
+          metadata: metadata
+        }
+      end
+
+      pages
+    end
+
     # Return an array of Field(name, value, type, ref)
     def list_fields
       fields = []
@@ -79,53 +227,57 @@ module AcroThat
 
       # First pass: collect widget information
       @resolver.each_object do |ref, body|
-        puts "ref: #{ref}"
-        next unless DictScan.is_widget?(body)
+        next unless body
 
-        # Extract position from widget
-        rect_tok = DictScan.value_token_after("/Rect", body)
-        next unless rect_tok && rect_tok.start_with?("[")
+        is_widget = DictScan.is_widget?(body)
+        
+        # Collect widget information if this is a widget
+        if is_widget
+          # Extract position from widget
+          rect_tok = DictScan.value_token_after("/Rect", body)
+          if rect_tok && rect_tok.start_with?("[")
+            # Parse [x y x+width y+height] format
+            rect_values = rect_tok.scan(/[-+]?\d*\.?\d+/).map(&:to_f)
+            if rect_values.length == 4
+              x, y, x2, y2 = rect_values
+              width = x2 - x
+              height = y2 - y
 
-        # Parse [x y x+width y+height] format
-        rect_values = rect_tok.scan(/[-+]?\d*\.?\d+/).map(&:to_f)
-        next unless rect_values.length == 4
+              page_num = nil
+              if body =~ %r{/P\s+(\d+)\s+(\d+)\s+R}
+                page_ref = [Integer(::Regexp.last_match(1)), Integer(::Regexp.last_match(2))]
+                page_num = find_page_number_for_ref(page_ref)
+              end
 
-        x, y, x2, y2 = rect_values
-        width = x2 - x
-        height = y2 - y
+              widget_info = {
+                x: x, y: y, width: width, height: height, page: page_num
+              }
 
-        page_num = nil
-        if body =~ %r{/P\s+(\d+)\s+(\d+)\s+R}
-          page_ref = [Integer(::Regexp.last_match(1)), Integer(::Regexp.last_match(2))]
-          page_num = find_page_number_for_ref(page_ref)
-        end
+              if body =~ %r{/Parent\s+(\d+)\s+(\d+)\s+R}
+                parent_ref = [Integer(::Regexp.last_match(1)), Integer(::Regexp.last_match(2))]
 
-        widget_info = {
-          x: x, y: y, width: width, height: height, page: page_num
-        }
+                field_widgets[parent_ref] ||= []
+                field_widgets[parent_ref] << widget_info
+              end
 
-        if body =~ %r{/Parent\s+(\d+)\s+(\d+)\s+R}
-          parent_ref = [Integer(::Regexp.last_match(1)), Integer(::Regexp.last_match(2))]
-
-          field_widgets[parent_ref] ||= []
-          field_widgets[parent_ref] << widget_info
-        end
-
-        next unless body.include?("/T")
-
-        t_tok = DictScan.value_token_after("/T", body)
-        next unless t_tok
-
-        widget_name = DictScan.decode_pdf_string(t_tok)
-        if widget_name && !widget_name.empty?
-          widgets_by_name[widget_name] ||= []
-          widgets_by_name[widget_name] << widget_info
+              if body.include?("/T")
+                t_tok = DictScan.value_token_after("/T", body)
+                if t_tok
+                  widget_name = DictScan.decode_pdf_string(t_tok)
+                  if widget_name && !widget_name.empty?
+                    widgets_by_name[widget_name] ||= []
+                    widgets_by_name[widget_name] << widget_info
+                  end
+                end
+              end
+            end
+          end
         end
 
         # Second pass: collect all fields (both field objects and widget annotations with /T)
-        next unless body&.include?("/T")
+        next unless body.include?("/T")
 
-        is_widget_field = DictScan.is_widget?(body)
+        is_widget_field = is_widget
         hint = body.include?("/FT") || is_widget_field || body.include?("/Kids") || body.include?("/Parent")
         next unless hint
 
@@ -142,8 +294,7 @@ module AcroThat
         type = ft_tok
 
         position = {}
-        is_widget_annot = DictScan.is_widget?(body)
-        if is_widget_annot
+        if is_widget
           rect_tok = DictScan.value_token_after("/Rect", body)
           if rect_tok && rect_tok.start_with?("[")
             rect_values = rect_tok.scan(/[-+]?\d*\.?\d+/).map(&:to_f)
@@ -541,6 +692,29 @@ module AcroThat
     end
 
     private
+
+    def collect_pages_from_tree(pages_ref, page_objects)
+      pages_body = @resolver.object_body(pages_ref)
+      return unless pages_body
+
+      # Extract /Kids array from Pages object
+      if pages_body =~ %r{/Kids\s*\[(.*?)\]}m
+        kids_array = ::Regexp.last_match(1)
+        # Extract all object references from Kids array in order
+        kids_array.scan(/(\d+)\s+(\d+)\s+R/) do |num_str, gen_str|
+          kid_ref = [num_str.to_i, gen_str.to_i]
+          kid_body = @resolver.object_body(kid_ref)
+
+          # Check if this kid is a page (not /Type/Pages)
+          if kid_body && (kid_body.include?("/Type /Page") || kid_body =~ %r{/Type\s*/Page(?!s)\b})
+            page_objects << kid_ref unless page_objects.include?(kid_ref)
+          elsif kid_body && kid_body.include?("/Type /Pages")
+            # Recursively find pages in this Pages node
+            collect_pages_from_tree(kid_ref, page_objects)
+          end
+        end
+      end
+    end
 
     def find_page_number_for_ref(page_ref)
       page_objects = []
