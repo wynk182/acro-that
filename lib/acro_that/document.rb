@@ -18,11 +18,14 @@ module AcroThat
 
     def initialize(path_or_io)
       @path = path_or_io.is_a?(String) ? path_or_io : nil
-      @raw = case path_or_io
-             when String then File.binread(path_or_io)
-             else path_or_io.binmode
-                  path_or_io.read
-             end.freeze
+      raw_bytes = case path_or_io
+                  when String then File.binread(path_or_io)
+                  else path_or_io.binmode
+                       path_or_io.read
+                  end
+
+      # Extract PDF content if wrapped in multipart form data
+      @raw = extract_pdf_from_form_data(raw_bytes).freeze
       @resolver = AcroThat::ObjectResolver.new(@raw)
       @patches = []
     end
@@ -633,6 +636,28 @@ module AcroThat
     end
 
     private
+
+    # Extract PDF content from multipart form data if present
+    # Some PDFs are uploaded as multipart form data with boundary markers
+    def extract_pdf_from_form_data(bytes)
+      # Check if this looks like multipart form data
+      if bytes =~ /\A------\w+/
+        # Find the PDF header
+        pdf_start = bytes.index("%PDF")
+        return bytes unless pdf_start
+
+        # Extract PDF content from start to EOF
+        pdf_end = bytes.rindex("%%EOF")
+        return bytes unless pdf_end
+
+        # Extract just the PDF portion
+        pdf_content = bytes[pdf_start..(pdf_end + 4)]
+        return pdf_content
+      end
+
+      # Not form data, return as-is
+      bytes
+    end
 
     def collect_pages_from_tree(pages_ref, page_objects)
       pages_body = @resolver.object_body(pages_ref)
