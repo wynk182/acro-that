@@ -466,6 +466,79 @@ RSpec.describe "PDF Form Editing" do
           temp_file.unlink
         end
       end
+
+      it "handles special characters in text field values without encoding errors" do
+        doc = create_document_from_path(example_pdf)
+        fields = doc.list_fields
+        expect(fields).not_to be_empty
+
+        original_field = fields.first
+
+        # Test with special characters that previously caused Encoding::CompatibilityError
+        special_chars_value = "María Valentina"
+
+        # This should not raise an Encoding::CompatibilityError
+        expect do
+          result = doc.update_field(original_field.name, special_chars_value)
+          expect(result).to be true
+        end.not_to raise_error
+
+        # Write to temp file and verify it works
+        temp_file = Tempfile.new(["test_special_chars", ".pdf"])
+        begin
+          doc.write(temp_file.path)
+
+          # Reload and verify the value was transliterated (special chars converted to ASCII)
+          doc2 = AcroThat::Document.new(temp_file.path)
+          fields2 = doc2.list_fields
+          updated_field = fields2.find { |f| f.name == original_field.name }
+          expect(updated_field).not_to be_nil
+          # The value should be transliterated to ASCII (María -> Maria)
+          expect(updated_field.value).to eq("Maria Valentina")
+        ensure
+          temp_file.unlink
+        end
+      end
+
+      it "handles special characters in radio button field values" do
+        doc = create_document_from_path(example_pdf)
+
+        # Create a radio button group with special characters in export value
+        result1 = doc.add_field("RadioOption1",
+                                type: :radio,
+                                group_id: "special_chars_group",
+                                value: "María",
+                                x: 100,
+                                y: 500,
+                                width: 20,
+                                height: 20,
+                                page: 1,
+                                selected: true)
+        expect(result1).to be_a(AcroThat::Field)
+        expect(result1.value).to eq("María")
+
+        result2 = doc.add_field("RadioOption2",
+                                type: :radio,
+                                group_id: "special_chars_group",
+                                value: "José",
+                                x: 100,
+                                y: 470,
+                                width: 20,
+                                height: 20,
+                                page: 1)
+        expect(result2).to be_a(AcroThat::Field)
+        expect(result2.value).to eq("José")
+
+        # This should not raise an Encoding::CompatibilityError
+        expect do
+          temp_file = Tempfile.new(["test_radio_special_chars", ".pdf"])
+          begin
+            doc.write(temp_file.path)
+          ensure
+            temp_file.unlink
+          end
+        end.not_to raise_error
+      end
     end
 
     describe "AcroThat::Field" do

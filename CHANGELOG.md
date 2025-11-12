@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.4] - 2025-11-12
+
+### Fixed
+- Fixed `Encoding::CompatibilityError` when processing field values with special characters (e.g., "María", "José"). Special characters are now automatically transliterated to ASCII equivalents (e.g., "María" → "Maria") before encoding to PDF format, ensuring compatibility with PDF string encoding requirements.
+
+### Added
+- Added I18n gem as a runtime dependency for transliteration support
+- Added `DictScan.transliterate_to_ascii` method to convert special characters to ASCII equivalents
+- Automatic transliteration for text field values and radio button field export values
+
 ## [0.1.8] - 2025-11-04
 
 ### Fixed

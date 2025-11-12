@@ -28,6 +28,7 @@ Gem::Specification.new do |spec|
   spec.require_paths = ["lib"]
 
   spec.add_runtime_dependency "chunky_png", "~> 1.4"
+  spec.add_runtime_dependency "i18n", "~> 1.14"
   spec.add_development_dependency "rspec", "~> 3.0"
   spec.add_development_dependency "pry", "~> 0.14"
   spec.add_development_dependency "rubocop", "~> 1.50"

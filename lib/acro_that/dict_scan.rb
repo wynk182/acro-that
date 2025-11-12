@@ -4,6 +4,26 @@ module AcroThat
   module DictScan
     module_function
 
+    # Configure I18n for transliteration (disable locale enforcement)
+    I18n.config.enforce_available_locales = false
+
+    # Transliterate a string to ASCII, converting special characters to their ASCII equivalents
+    # Example: "María Valentina" -> "Maria Valentina"
+    def transliterate_to_ascii(str)
+      return str unless str.is_a?(String)
+
+      # Ensure the string is in UTF-8 encoding
+      utf8_str = str.encode("UTF-8", invalid: :replace, undef: :replace)
+
+      # Use I18n transliteration to convert to ASCII
+      begin
+        I18n.transliterate(utf8_str, locale: :en, replacement: "")
+      rescue StandardError
+        # Fallback: if transliteration fails, try to encode to ASCII with replacements
+        utf8_str.encode("ASCII", invalid: :replace, undef: :replace)
+      end
+    end
+
     # --- low-level string helpers -------------------------------------------------
 
     def strip_stream_bodies(pdf)
@@ -118,10 +138,15 @@ module AcroThat
       when Symbol
         "/#{val}"
       when String
-        if val.ascii_only?
-          "(#{val.gsub(/([\\()])/, '\\\\\\1').gsub("\n", '\\n')})"
+        # Transliterate special characters to ASCII to avoid encoding issues
+        ascii_val = transliterate_to_ascii(val)
+
+        if ascii_val.ascii_only?
+          "(#{ascii_val.gsub(/([\\()])/, '\\\\\\1').gsub("\n", '\\n')})"
         else
-          utf16 = val.encode("UTF-16BE")
+          # Ensure string is in UTF-8 before encoding to UTF-16BE
+          utf8_str = ascii_val.encode("UTF-8", invalid: :replace, undef: :replace)
+          utf16 = utf8_str.encode("UTF-16BE")
           bytes = "\xFE\xFF#{utf16}"
           "<#{bytes.unpack1('H*')}>"
         end
@@ -138,8 +163,11 @@ module AcroThat
       # Remove leading / if present (we'll add it back)
       name_str = name_str[1..] if name_str.start_with?("/")
 
+      # Transliterate special characters to ASCII to avoid encoding issues
+      ascii_name = transliterate_to_ascii(name_str)
+
       # Encode special characters as hex
-      encoded = name_str.each_byte.map do |byte|
+      encoded = ascii_name.each_byte.map do |byte|
         char = byte.chr
         # PDF name special characters that need hex encoding: # ( ) < > [ ] { } / %
         # Also encode control characters (0x00-0x1F, 0x7F) and non-ASCII (0x80-0xFF)

@@ -5,6 +5,7 @@ require "stringio"
 require "zlib"
 require "base64"
 require "set"
+require "i18n"
 
 require_relative "acro_that/dict_scan"
 require_relative "acro_that/object_resolver"

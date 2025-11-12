@@ -58,12 +58,12 @@ module AcroThat
       while current_obj <= max_obj_num
         # Find next existing object
         next_existing = sorted.find { |num, _gen, _offset| num >= current_obj }
-        
+
         if next_existing && next_existing[0] == current_obj
           # Object exists - find consecutive run of existing objects
           first_num = current_obj
           run_length = 1
-          
+
           while (i + run_length) < sorted.length &&
                 sorted[i + run_length][0] == first_num + run_length &&
                 sorted[i + run_length][1] == sorted[i][1]
@@ -86,12 +86,13 @@ module AcroThat
           # Object doesn't exist - find consecutive run of missing objects
           first_missing = current_obj
           missing_count = 1
-          
+
           while current_obj + missing_count <= max_obj_num
             check_obj = current_obj + missing_count
             if sorted.any? { |num, _gen, _offset| num == check_obj }
               break
             end
+
             missing_count += 1
           end
 
