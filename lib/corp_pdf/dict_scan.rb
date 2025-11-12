@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module AcroThat
+module CorpPdf
   module DictScan
     module_function
 

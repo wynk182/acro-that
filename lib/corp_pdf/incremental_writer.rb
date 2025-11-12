@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module AcroThat
+module CorpPdf
   # Appends an incremental update containing the given patches.
   # Each patch is {ref:[num,gen], body:String}
   class IncrementalWriter
@@ -24,7 +24,7 @@ module AcroThat
       offsets = []
 
       # Write patches into an object stream for efficiency
-      objstm_data = AcroThat::ObjStm.create(@patches, compress: true)
+      objstm_data = CorpPdf::ObjStm.create(@patches, compress: true)
       if objstm_data
         # Get the next object number for the object stream itself
         objstm_num = [max_obj + 1, @patches.map { |p| p[:ref][0] }.max.to_i + 1].max

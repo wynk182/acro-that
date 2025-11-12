@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module AcroThat
+module CorpPdf
   module Fields
     # Handles radio button field creation
     class Radio

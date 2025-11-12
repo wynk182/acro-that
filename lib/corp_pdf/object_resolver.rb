@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module AcroThat
+module CorpPdf
   # Parses xref (tables and streams) and exposes object bodies uniformly,
   # including objects embedded in /ObjStm. Also gives you the trailer and /Root.
   class ObjectResolver
@@ -374,7 +374,7 @@ module AcroThat
       raw = decode_stream_data(dict_src, data)
       n = DictScan.value_token_after("/N", dict_src).to_i
       first = DictScan.value_token_after("/First", dict_src).to_i
-      parsed = AcroThat::ObjStm.parse(raw, n: n, first: first)
+      parsed = CorpPdf::ObjStm.parse(raw, n: n, first: first)
       @objstm_cache[container_ref] = parsed
     end
   end

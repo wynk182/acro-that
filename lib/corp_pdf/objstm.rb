@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module AcroThat
+module CorpPdf
   class ObjStm
     # Parse an object stream body given N and First.
     # Returns: array like [{ ref:[obj_num,0], body:String }, ...] in order of header listing.

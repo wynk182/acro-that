@@ -6,44 +6,44 @@ require "tempfile"
 RSpec.describe "Encoding and Transliteration" do
   describe "DictScan.transliterate_to_ascii" do
     it "transliterates accented characters to ASCII" do
-      expect(AcroThat::DictScan.transliterate_to_ascii("María")).to eq("Maria")
-      expect(AcroThat::DictScan.transliterate_to_ascii("José")).to eq("Jose")
-      expect(AcroThat::DictScan.transliterate_to_ascii("François")).to eq("Francois")
-      expect(AcroThat::DictScan.transliterate_to_ascii("Café")).to eq("Cafe")
+      expect(CorpPdf::DictScan.transliterate_to_ascii("María")).to eq("Maria")
+      expect(CorpPdf::DictScan.transliterate_to_ascii("José")).to eq("Jose")
+      expect(CorpPdf::DictScan.transliterate_to_ascii("François")).to eq("Francois")
+      expect(CorpPdf::DictScan.transliterate_to_ascii("Café")).to eq("Cafe")
     end
 
     it "handles strings with multiple special characters" do
-      expect(AcroThat::DictScan.transliterate_to_ascii("María Valentina")).to eq("Maria Valentina")
-      expect(AcroThat::DictScan.transliterate_to_ascii("José María")).to eq("Jose Maria")
-      expect(AcroThat::DictScan.transliterate_to_ascii("François Müller")).to eq("Francois Muller")
+      expect(CorpPdf::DictScan.transliterate_to_ascii("María Valentina")).to eq("Maria Valentina")
+      expect(CorpPdf::DictScan.transliterate_to_ascii("José María")).to eq("Jose Maria")
+      expect(CorpPdf::DictScan.transliterate_to_ascii("François Müller")).to eq("Francois Muller")
     end
 
     it "handles strings with no special characters" do
-      expect(AcroThat::DictScan.transliterate_to_ascii("John Smith")).to eq("John Smith")
-      expect(AcroThat::DictScan.transliterate_to_ascii("Test123")).to eq("Test123")
+      expect(CorpPdf::DictScan.transliterate_to_ascii("John Smith")).to eq("John Smith")
+      expect(CorpPdf::DictScan.transliterate_to_ascii("Test123")).to eq("Test123")
     end
 
     it "handles empty strings" do
-      expect(AcroThat::DictScan.transliterate_to_ascii("")).to eq("")
+      expect(CorpPdf::DictScan.transliterate_to_ascii("")).to eq("")
     end
 
     it "handles non-string inputs" do
-      expect(AcroThat::DictScan.transliterate_to_ascii(nil)).to be_nil
-      expect(AcroThat::DictScan.transliterate_to_ascii(123)).to eq(123)
+      expect(CorpPdf::DictScan.transliterate_to_ascii(nil)).to be_nil
+      expect(CorpPdf::DictScan.transliterate_to_ascii(123)).to eq(123)
     end
 
     it "handles various accented characters from different languages" do
-      expect(AcroThat::DictScan.transliterate_to_ascii("áéíóú")).to eq("aeiou")
-      expect(AcroThat::DictScan.transliterate_to_ascii("ñ")).to eq("n")
-      expect(AcroThat::DictScan.transliterate_to_ascii("ü")).to eq("u")
-      expect(AcroThat::DictScan.transliterate_to_ascii("ç")).to eq("c")
+      expect(CorpPdf::DictScan.transliterate_to_ascii("áéíóú")).to eq("aeiou")
+      expect(CorpPdf::DictScan.transliterate_to_ascii("ñ")).to eq("n")
+      expect(CorpPdf::DictScan.transliterate_to_ascii("ü")).to eq("u")
+      expect(CorpPdf::DictScan.transliterate_to_ascii("ç")).to eq("c")
     end
   end
 
   describe "DictScan.encode_pdf_string" do
     it "encodes strings with special characters without raising encoding errors" do
       expect do
-        result = AcroThat::DictScan.encode_pdf_string("María Valentina")
+        result = CorpPdf::DictScan.encode_pdf_string("María Valentina")
         expect(result).to be_a(String)
         expect(result).to start_with("(")
         expect(result).to end_with(")")
@@ -51,29 +51,29 @@ RSpec.describe "Encoding and Transliteration" do
     end
 
     it "transliterates special characters before encoding" do
-      result = AcroThat::DictScan.encode_pdf_string("María")
+      result = CorpPdf::DictScan.encode_pdf_string("María")
       # Should encode as "(Maria)" since it's transliterated to ASCII
       expect(result).to eq("(Maria)")
     end
 
     it "handles ASCII-only strings normally" do
-      expect(AcroThat::DictScan.encode_pdf_string("John Smith")).to eq("(John Smith)")
-      expect(AcroThat::DictScan.encode_pdf_string("Test123")).to eq("(Test123)")
+      expect(CorpPdf::DictScan.encode_pdf_string("John Smith")).to eq("(John Smith)")
+      expect(CorpPdf::DictScan.encode_pdf_string("Test123")).to eq("(Test123)")
     end
 
     it "escapes special PDF characters in ASCII strings" do
-      result = AcroThat::DictScan.encode_pdf_string("Test (value)")
+      result = CorpPdf::DictScan.encode_pdf_string("Test (value)")
       expect(result).to include("\\(")
       expect(result).to include("\\)")
     end
 
     it "handles boolean values" do
-      expect(AcroThat::DictScan.encode_pdf_string(true)).to eq("true")
-      expect(AcroThat::DictScan.encode_pdf_string(false)).to eq("false")
+      expect(CorpPdf::DictScan.encode_pdf_string(true)).to eq("true")
+      expect(CorpPdf::DictScan.encode_pdf_string(false)).to eq("false")
     end
 
     it "handles symbol values" do
-      expect(AcroThat::DictScan.encode_pdf_string(:test)).to eq("/test")
+      expect(CorpPdf::DictScan.encode_pdf_string(:test)).to eq("/test")
     end
 
     it "does not raise Encoding::CompatibilityError with various special characters" do
@@ -89,7 +89,7 @@ RSpec.describe "Encoding and Transliteration" do
 
       special_chars.each do |str|
         expect do
-          AcroThat::DictScan.encode_pdf_string(str)
+          CorpPdf::DictScan.encode_pdf_string(str)
         end.not_to raise_error
       end
     end
@@ -98,20 +98,20 @@ RSpec.describe "Encoding and Transliteration" do
   describe "DictScan.encode_pdf_name" do
     it "encodes PDF names with special characters without raising encoding errors" do
       expect do
-        result = AcroThat::DictScan.encode_pdf_name("María")
+        result = CorpPdf::DictScan.encode_pdf_name("María")
         expect(result).to be_a(String)
         expect(result).to start_with("/")
       end.not_to raise_error
     end
 
     it "transliterates special characters before encoding" do
-      result = AcroThat::DictScan.encode_pdf_name("María")
+      result = CorpPdf::DictScan.encode_pdf_name("María")
       # Should transliterate to "Maria" and encode as PDF name
       expect(result).to eq("/Maria")
     end
 
     it "handles names with special PDF characters" do
-      result = AcroThat::DictScan.encode_pdf_name("Test (value)")
+      result = CorpPdf::DictScan.encode_pdf_name("Test (value)")
       # Parentheses should be hex-encoded
       expect(result).to include("#28") # ( in hex
       expect(result).to include("#29") # ) in hex
@@ -127,7 +127,7 @@ RSpec.describe "Encoding and Transliteration" do
 
       special_chars.each do |str|
         expect do
-          AcroThat::DictScan.encode_pdf_name(str)
+          CorpPdf::DictScan.encode_pdf_name(str)
         end.not_to raise_error
       end
     end
@@ -137,7 +137,7 @@ RSpec.describe "Encoding and Transliteration" do
     let(:example_pdf) { File.join(__dir__, "fixtures", "form.pdf") }
 
     it "can update text fields with special characters" do
-      doc = AcroThat::Document.new(example_pdf)
+      doc = CorpPdf::Document.new(example_pdf)
       fields = doc.list_fields
       expect(fields).not_to be_empty
 
@@ -155,7 +155,7 @@ RSpec.describe "Encoding and Transliteration" do
         doc.write(temp_file.path)
 
         # Reload and verify transliteration
-        doc2 = AcroThat::Document.new(temp_file.path)
+        doc2 = CorpPdf::Document.new(temp_file.path)
         fields2 = doc2.list_fields
         updated_field = fields2.find { |f| f.name == original_field.name }
         expect(updated_field).not_to be_nil
@@ -166,7 +166,7 @@ RSpec.describe "Encoding and Transliteration" do
     end
 
     it "can add text fields with special character values" do
-      doc = AcroThat::Document.new(example_pdf)
+      doc = CorpPdf::Document.new(example_pdf)
 
       expect do
         result = doc.add_field("TestField",
@@ -176,7 +176,7 @@ RSpec.describe "Encoding and Transliteration" do
                                width: 200,
                                height: 20,
                                page: 1)
-        expect(result).to be_a(AcroThat::Field)
+        expect(result).to be_a(CorpPdf::Field)
       end.not_to raise_error
 
       # Write and verify
@@ -185,7 +185,7 @@ RSpec.describe "Encoding and Transliteration" do
         doc.write(temp_file.path)
 
         # Reload and verify
-        doc2 = AcroThat::Document.new(temp_file.path)
+        doc2 = CorpPdf::Document.new(temp_file.path)
         fields = doc2.list_fields
         test_field = fields.find { |f| f.name == "TestField" }
         expect(test_field).not_to be_nil
@@ -196,7 +196,7 @@ RSpec.describe "Encoding and Transliteration" do
     end
 
     it "can create radio buttons with special character export values" do
-      doc = AcroThat::Document.new(example_pdf)
+      doc = CorpPdf::Document.new(example_pdf)
 
       expect do
         result1 = doc.add_field("Radio1",
@@ -209,7 +209,7 @@ RSpec.describe "Encoding and Transliteration" do
                                 height: 20,
                                 page: 1,
                                 selected: true)
-        expect(result1).to be_a(AcroThat::Field)
+        expect(result1).to be_a(CorpPdf::Field)
 
         result2 = doc.add_field("Radio2",
                                 type: :radio,
@@ -220,7 +220,7 @@ RSpec.describe "Encoding and Transliteration" do
                                 width: 20,
                                 height: 20,
                                 page: 1)
-        expect(result2).to be_a(AcroThat::Field)
+        expect(result2).to be_a(CorpPdf::Field)
       end.not_to raise_error
 
       # Write and verify
@@ -237,7 +237,7 @@ RSpec.describe "Encoding and Transliteration" do
     end
 
     it "can handle multiple operations with special characters" do
-      doc = AcroThat::Document.new(example_pdf)
+      doc = CorpPdf::Document.new(example_pdf)
       fields = doc.list_fields
       expect(fields).not_to be_empty
 
@@ -259,7 +259,7 @@ RSpec.describe "Encoding and Transliteration" do
         end.not_to raise_error
 
         # Verify PDF is valid
-        doc2 = AcroThat::Document.new(temp_file.path)
+        doc2 = CorpPdf::Document.new(temp_file.path)
         fields2 = doc2.list_fields
         expect(fields2.length).to be > 0
       ensure
@@ -268,7 +268,7 @@ RSpec.describe "Encoding and Transliteration" do
     end
 
     it "handles field names with special characters" do
-      doc = AcroThat::Document.new(example_pdf)
+      doc = CorpPdf::Document.new(example_pdf)
 
       expect do
         result = doc.add_field("María",
@@ -278,7 +278,7 @@ RSpec.describe "Encoding and Transliteration" do
                                width: 200,
                                height: 20,
                                page: 1)
-        expect(result).to be_a(AcroThat::Field)
+        expect(result).to be_a(CorpPdf::Field)
       end.not_to raise_error
 
       # Write and verify
@@ -287,7 +287,7 @@ RSpec.describe "Encoding and Transliteration" do
         doc.write(temp_file.path)
 
         # Reload and verify field name was transliterated
-        doc2 = AcroThat::Document.new(temp_file.path)
+        doc2 = CorpPdf::Document.new(temp_file.path)
         fields = doc2.list_fields
         test_field = fields.find { |f| f.name == "Maria" }
         expect(test_field).not_to be_nil
@@ -299,25 +299,25 @@ RSpec.describe "Encoding and Transliteration" do
 
   describe "Edge cases" do
     it "handles strings with mixed ASCII and special characters" do
-      result = AcroThat::DictScan.encode_pdf_string("John María Smith")
+      result = CorpPdf::DictScan.encode_pdf_string("John María Smith")
       expect(result).to eq("(John Maria Smith)")
     end
 
     it "handles strings with only special characters" do
-      result = AcroThat::DictScan.encode_pdf_string("áéíóú")
+      result = CorpPdf::DictScan.encode_pdf_string("áéíóú")
       expect(result).to eq("(aeiou)")
     end
 
     it "handles very long strings with special characters" do
       long_string = "María " * 100
       expect do
-        result = AcroThat::DictScan.encode_pdf_string(long_string)
+        result = CorpPdf::DictScan.encode_pdf_string(long_string)
         expect(result).to be_a(String)
       end.not_to raise_error
     end
 
     it "handles strings with newlines and special characters" do
-      result = AcroThat::DictScan.encode_pdf_string("María\nValentina")
+      result = CorpPdf::DictScan.encode_pdf_string("María\nValentina")
       expect(result).to include("\\n")
       expect(result).to include("Maria")
     end

@@ -13,7 +13,7 @@ RSpec.describe "PDF Form Editing" do
 
   # Helper to create Document from file path
   def create_document_from_path(pdf_path)
-    AcroThat::Document.new(pdf_path)
+    CorpPdf::Document.new(pdf_path)
   end
 
   describe "Using real PDF files from examples folder" do
@@ -28,7 +28,7 @@ RSpec.describe "PDF Form Editing" do
         expect(fields.length).to be > 0
 
         fields.each do |field|
-          expect(field).to be_a(AcroThat::Field)
+          expect(field).to be_a(CorpPdf::Field)
           expect(field.name).to be_a(String)
           expect(field.name).not_to be_empty
         end
@@ -52,7 +52,7 @@ RSpec.describe "PDF Form Editing" do
           doc.write(temp_file.path)
 
           # Reload and verify
-          doc2 = AcroThat::Document.new(temp_file.path)
+          doc2 = CorpPdf::Document.new(temp_file.path)
           updated_fields = doc2.list_fields
           updated_field = updated_fields.find { |f| f.name == original_field.name }
 
@@ -69,7 +69,7 @@ RSpec.describe "PDF Form Editing" do
 
         # Add a new field
         field = doc.add_field("TestNewField", value: "New Field Value", x: 100, y: 500, width: 200, height: 20, page: 1)
-        expect(field).to be_a(AcroThat::Field)
+        expect(field).to be_a(CorpPdf::Field)
         expect(field.name).to eq("TestNewField")
         expect(field.value).to eq("New Field Value")
         expect(field.text_field?).to be true
@@ -80,7 +80,7 @@ RSpec.describe "PDF Form Editing" do
           doc.write(temp_file.path)
 
           # Reload and verify the field exists
-          doc2 = AcroThat::Document.new(temp_file.path)
+          doc2 = CorpPdf::Document.new(temp_file.path)
           new_fields = doc2.list_fields
 
           # Check if field persisted
@@ -119,7 +119,7 @@ RSpec.describe "PDF Form Editing" do
           doc.write(temp_file.path)
 
           # Reload and verify
-          doc2 = AcroThat::Document.new(temp_file.path)
+          doc2 = CorpPdf::Document.new(temp_file.path)
           remaining_fields = doc2.list_fields
 
           expect(remaining_fields.length).to be < original_count
@@ -149,7 +149,7 @@ RSpec.describe "PDF Form Editing" do
           doc.write(temp_file.path)
 
           # Reload and verify
-          doc2 = AcroThat::Document.new(temp_file.path)
+          doc2 = CorpPdf::Document.new(temp_file.path)
           renamed_fields = doc2.list_fields
 
           old_field = renamed_fields.find { |f| f.name == original_name }
@@ -179,7 +179,7 @@ RSpec.describe "PDF Form Editing" do
         temp_file = Tempfile.new(["test_multi", ".pdf"])
         begin
           doc.write(temp_file.path)
-          doc2 = AcroThat::Document.new(temp_file.path)
+          doc2 = CorpPdf::Document.new(temp_file.path)
 
           # Verify field exists after reload
           updated_fields = doc2.list_fields
@@ -191,7 +191,7 @@ RSpec.describe "PDF Form Editing" do
             existing_field = fields.first
             doc2.update_field(existing_field.name, "Updated Value")
             doc2.write(temp_file.path)
-            doc3 = AcroThat::Document.new(temp_file.path)
+            doc3 = CorpPdf::Document.new(temp_file.path)
             updated_fields2 = doc3.list_fields
             found_field2 = updated_fields2.find { |f| f.name == existing_field.name }
             expect(found_field2).not_to be_nil
@@ -200,7 +200,7 @@ RSpec.describe "PDF Form Editing" do
             # Remove the field
             doc3.remove_field(existing_field.name)
             doc3.write(temp_file.path)
-            doc4 = AcroThat::Document.new(temp_file.path)
+            doc4 = CorpPdf::Document.new(temp_file.path)
             final_fields = doc4.list_fields
             removed_field = final_fields.find { |f| f.name == existing_field.name }
             expect(removed_field).to be_nil
@@ -213,7 +213,7 @@ RSpec.describe "PDF Form Editing" do
 
             # Write and reload again
             doc2.write(temp_file.path)
-            doc3 = AcroThat::Document.new(temp_file.path)
+            doc3 = CorpPdf::Document.new(temp_file.path)
             updated_fields2 = doc3.list_fields
             found_field2 = updated_fields2.find { |f| f.name == "MultiTestField" }
             expect(found_field2).not_to be_nil
@@ -225,7 +225,7 @@ RSpec.describe "PDF Form Editing" do
 
             # Write again and verify removal
             doc3.write(temp_file.path)
-            doc4 = AcroThat::Document.new(temp_file.path)
+            doc4 = CorpPdf::Document.new(temp_file.path)
             final_fields = doc4.list_fields
 
             removed_field = final_fields.find { |f| f.name == "MultiTestField" }
@@ -255,7 +255,7 @@ RSpec.describe "PDF Form Editing" do
           doc.write(temp_file.path)
 
           # Reload and verify both fields exist
-          doc2 = AcroThat::Document.new(temp_file.path)
+          doc2 = CorpPdf::Document.new(temp_file.path)
           reloaded_fields = doc2.list_fields
 
           found_field1 = reloaded_fields.find { |f| f.name == field1.name }
@@ -290,7 +290,7 @@ RSpec.describe "PDF Form Editing" do
         temp_file = Tempfile.new(["test_types", ".pdf"])
         begin
           doc.write(temp_file.path)
-          doc2 = AcroThat::Document.new(temp_file.path)
+          doc2 = CorpPdf::Document.new(temp_file.path)
           persisted_fields = doc2.list_fields
 
           persisted_text = persisted_fields.find { |f| f.name == "TestTextField" }
@@ -396,7 +396,7 @@ RSpec.describe "PDF Form Editing" do
           doc.write(temp_file.path)
 
           # Reload and verify the PDF contains appearance stream
-          doc2 = AcroThat::Document.new(temp_file.path)
+          doc2 = CorpPdf::Document.new(temp_file.path)
 
           # Find the widget annotation for the signature field
           fields = doc2.list_fields
@@ -448,7 +448,7 @@ RSpec.describe "PDF Form Editing" do
           doc.write(temp_file.path)
 
           # Reload and verify appearance was added
-          doc2 = AcroThat::Document.new(temp_file.path)
+          doc2 = CorpPdf::Document.new(temp_file.path)
 
           # Find the widget annotation for the signature field
           fields = doc2.list_fields
@@ -489,7 +489,7 @@ RSpec.describe "PDF Form Editing" do
           doc.write(temp_file.path)
 
           # Reload and verify the value was transliterated (special chars converted to ASCII)
-          doc2 = AcroThat::Document.new(temp_file.path)
+          doc2 = CorpPdf::Document.new(temp_file.path)
           fields2 = doc2.list_fields
           updated_field = fields2.find { |f| f.name == original_field.name }
           expect(updated_field).not_to be_nil
@@ -514,7 +514,7 @@ RSpec.describe "PDF Form Editing" do
                                 height: 20,
                                 page: 1,
                                 selected: true)
-        expect(result1).to be_a(AcroThat::Field)
+        expect(result1).to be_a(CorpPdf::Field)
         expect(result1.value).to eq("María")
 
         result2 = doc.add_field("RadioOption2",
@@ -526,7 +526,7 @@ RSpec.describe "PDF Form Editing" do
                                 width: 20,
                                 height: 20,
                                 page: 1)
-        expect(result2).to be_a(AcroThat::Field)
+        expect(result2).to be_a(CorpPdf::Field)
         expect(result2.value).to eq("José")
 
         # This should not raise an Encoding::CompatibilityError
@@ -541,7 +541,7 @@ RSpec.describe "PDF Form Editing" do
       end
     end
 
-    describe "AcroThat::Field" do
+    describe "CorpPdf::Field" do
       let(:example_pdf) { load_example_pdf("form.pdf") }
 
       let(:document) do
@@ -587,7 +587,7 @@ RSpec.describe "PDF Form Editing" do
             document.write(temp_file.path)
 
             # Reload and verify
-            doc2 = AcroThat::Document.new(temp_file.path)
+            doc2 = CorpPdf::Document.new(temp_file.path)
             updated_fields = doc2.list_fields
             updated = updated_fields.find { |f| f.name == field.name }
             expect(updated).not_to be_nil
@@ -610,7 +610,7 @@ RSpec.describe "PDF Form Editing" do
           temp_file = Tempfile.new(["test_field_remove", ".pdf"])
           begin
             document.write(temp_file.path)
-            doc2 = AcroThat::Document.new(temp_file.path)
+            doc2 = CorpPdf::Document.new(temp_file.path)
             fields = doc2.list_fields
             expect(fields.find { |f| f.name == field_name }).to be_nil
           ensure
@@ -619,7 +619,7 @@ RSpec.describe "PDF Form Editing" do
         end
 
         it "returns false when field has no document" do
-          orphan_field = AcroThat::Field.new("Orphan", "Value", "/Tx", [1, 0])
+          orphan_field = CorpPdf::Field.new("Orphan", "Value", "/Tx", [1, 0])
           result = orphan_field.remove
 
           expect(result).to be false
@@ -628,26 +628,26 @@ RSpec.describe "PDF Form Editing" do
 
       describe "type checking methods" do
         it "identifies text fields correctly" do
-          text_field = AcroThat::Field.new("Text", "Value", "/Tx", [1, 0])
+          text_field = CorpPdf::Field.new("Text", "Value", "/Tx", [1, 0])
           expect(text_field.text_field?).to be true
           expect(text_field.button_field?).to be false
           expect(text_field.choice_field?).to be false
         end
 
         it "identifies button fields correctly" do
-          button_field = AcroThat::Field.new("Button", "Value", "/Btn", [1, 0])
+          button_field = CorpPdf::Field.new("Button", "Value", "/Btn", [1, 0])
           expect(button_field.button_field?).to be true
           expect(button_field.text_field?).to be false
         end
 
         it "identifies choice fields correctly" do
-          choice_field = AcroThat::Field.new("Choice", "Value", "/Ch", [1, 0])
+          choice_field = CorpPdf::Field.new("Choice", "Value", "/Ch", [1, 0])
           expect(choice_field.choice_field?).to be true
           expect(choice_field.text_field?).to be false
         end
 
         it "identifies signature fields correctly" do
-          sig_field = AcroThat::Field.new("Signature", "Value", "/Sig", [1, 0])
+          sig_field = CorpPdf::Field.new("Signature", "Value", "/Sig", [1, 0])
           expect(sig_field.signature_field?).to be true
           expect(sig_field.text_field?).to be false
         end
@@ -655,16 +655,16 @@ RSpec.describe "PDF Form Editing" do
 
       describe "position methods" do
         it "checks if field has position information" do
-          field_with_pos = AcroThat::Field.new("Field", "Value", "/Tx", [1, 0], nil,
+          field_with_pos = CorpPdf::Field.new("Field", "Value", "/Tx", [1, 0], nil,
                                                { x: 100, y: 200, width: 50, height: 20 })
-          field_without_pos = AcroThat::Field.new("Field", "Value", "/Tx", [1, 0])
+          field_without_pos = CorpPdf::Field.new("Field", "Value", "/Tx", [1, 0])
 
           expect(field_with_pos.has_position?).to be true
           expect(field_without_pos.has_position?).to be false
         end
 
         it "returns correct position attributes" do
-          field = AcroThat::Field.new("Field", "Value", "/Tx", [1, 0], nil,
+          field = CorpPdf::Field.new("Field", "Value", "/Tx", [1, 0], nil,
                                       { x: 100, y: 200, width: 50, height: 20, page: 1 })
 
           expect(field.x).to eq(100)
@@ -677,22 +677,22 @@ RSpec.describe "PDF Form Editing" do
 
       describe "#has_value?" do
         it "returns true when field has a value" do
-          field = AcroThat::Field.new("Field", "Value", "/Tx", [1, 0])
+          field = CorpPdf::Field.new("Field", "Value", "/Tx", [1, 0])
           expect(field.has_value?).to be true
         end
 
         it "returns false when field has no value" do
-          field = AcroThat::Field.new("Field", nil, "/Tx", [1, 0])
+          field = CorpPdf::Field.new("Field", nil, "/Tx", [1, 0])
           expect(field.has_value?).to be false
 
-          field = AcroThat::Field.new("Field", "", "/Tx", [1, 0])
+          field = CorpPdf::Field.new("Field", "", "/Tx", [1, 0])
           expect(field.has_value?).to be false
         end
       end
 
       describe "#object_number and #generation" do
         it "returns correct object number and generation" do
-          field = AcroThat::Field.new("Field", "Value", "/Tx", [42, 3])
+          field = CorpPdf::Field.new("Field", "Value", "/Tx", [42, 3])
 
           expect(field.object_number).to eq(42)
           expect(field.generation).to eq(3)
@@ -701,35 +701,35 @@ RSpec.describe "PDF Form Editing" do
 
       describe "#valid_ref?" do
         it "returns true for valid references" do
-          field = AcroThat::Field.new("Field", "Value", "/Tx", [1, 0])
+          field = CorpPdf::Field.new("Field", "Value", "/Tx", [1, 0])
           expect(field.valid_ref?).to be true
         end
 
         it "returns false for placeholder references" do
-          field = AcroThat::Field.new("Field", "Value", "/Tx", [-1, 0])
+          field = CorpPdf::Field.new("Field", "Value", "/Tx", [-1, 0])
           expect(field.valid_ref?).to be false
         end
       end
 
       describe "#==" do
         it "compares fields correctly" do
-          field1 = AcroThat::Field.new("Field", "Value", "/Tx", [1, 0])
-          field2 = AcroThat::Field.new("Field", "Value", "/Tx", [1, 0])
-          field3 = AcroThat::Field.new("Other", "Value", "/Tx", [1, 0])
+          field1 = CorpPdf::Field.new("Field", "Value", "/Tx", [1, 0])
+          field2 = CorpPdf::Field.new("Field", "Value", "/Tx", [1, 0])
+          field3 = CorpPdf::Field.new("Other", "Value", "/Tx", [1, 0])
 
           expect(field1 == field2).to be true
           expect(field1 == field3).to be false
         end
 
         it "returns false for non-Field objects" do
-          field = AcroThat::Field.new("Field", "Value", "/Tx", [1, 0])
+          field = CorpPdf::Field.new("Field", "Value", "/Tx", [1, 0])
           expect(field == "not a field").to be false
         end
       end
 
       describe "#to_s and #inspect" do
         it "returns a descriptive string representation" do
-          field = AcroThat::Field.new("TestField", "Test Value", "/Tx", [1, 0], nil,
+          field = CorpPdf::Field.new("TestField", "Test Value", "/Tx", [1, 0], nil,
                                       { x: 100, y: 200, width: 50, height: 20, page: 1 })
 
           str = field.to_s
@@ -744,7 +744,7 @@ RSpec.describe "PDF Form Editing" do
         end
 
         it "handles fields without position gracefully" do
-          field = AcroThat::Field.new("Field", "Value", "/Tx", [1, 0])
+          field = CorpPdf::Field.new("Field", "Value", "/Tx", [1, 0])
           str = field.to_s
 
           expect(str).to include("Field")

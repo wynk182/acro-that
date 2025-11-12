@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    acro_that (1.0.3)
+    corp_pdf (1.0.5)
       chunky_png (~> 1.4)
       i18n (~> 1.14)
 
@@ -80,7 +80,7 @@ PLATFORMS
   ruby
 
 DEPENDENCIES
-  acro_that!
+  corp_pdf!
   pry (~> 0.14)
   rspec (~> 3.0)
   rubocop (~> 1.50)

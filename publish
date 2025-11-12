@@ -2,16 +2,16 @@
 
 set -e  # Exit on any error
 
-VERSION_FILE="lib/acro_that/version.rb"
-GEMSPEC_FILE="acro_that.gemspec"
-GEM_NAME="acro_that"
+VERSION_FILE="lib/corp_pdf/version.rb"
+GEMSPEC_FILE="corp_pdf.gemspec"
+GEM_NAME="corp_pdf"
 
 # Function to show usage
 usage() {
     cat << EOF
 Usage: $0 [OPTIONS]
 
-Publish acro_that gem to RubyGems.
+Publish corp_pdf gem to RubyGems.
 
 OPTIONS:
     -b, --bump TYPE        Bump version before publishing (major|minor|patch)

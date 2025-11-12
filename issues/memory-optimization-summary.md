@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document summarizes the memory optimizations implemented for `acro_that` based on the analysis in `memory-improvements.md`.
+This document summarizes the memory optimizations implemented for `corp_pdf` based on the analysis in `memory-improvements.md`.
 
 ## Optimizations Implemented
 
@@ -13,7 +13,7 @@ This document summarizes the memory optimizations implemented for `acro_that` ba
 - Freeze `@raw` on reassignment in `flatten!`, `clear!`, and `write`
 
 **Files Modified:**
-- `lib/acro_that/document.rb`
+- `lib/corp_pdf/document.rb`
 
 **Benefits:**
 - Guarantees memory sharing between `Document#@raw` and `ObjectResolver#@bytes`
@@ -38,8 +38,8 @@ This document summarizes the memory optimizations implemented for `acro_that` ba
 - Call `clear_cache` before creating new resolver instances in `flatten!`, `clear!`, and `write`
 
 **Files Modified:**
-- `lib/acro_that/object_resolver.rb` - Added `clear_cache` method
-- `lib/acro_that/document.rb` - Call `clear_cache` before creating new resolvers
+- `lib/corp_pdf/object_resolver.rb` - Added `clear_cache` method
+- `lib/corp_pdf/document.rb` - Call `clear_cache` before creating new resolvers
 
 **Benefits:**
 - Prevents memory retention from object stream cache
@@ -58,7 +58,7 @@ def flatten!
   flattened_content = flatten.freeze
   @raw = flattened_content
   @resolver.clear_cache  # Clear cache before new resolver
-  @resolver = AcroThat::ObjectResolver.new(flattened_content)
+  @resolver = CorpPdf::ObjectResolver.new(flattened_content)
   # ...
 end
 ```
@@ -72,7 +72,7 @@ end
 - Avoids creating an unnecessary duplicate of the original PDF
 
 **Files Modified:**
-- `lib/acro_that/incremental_writer.rb`
+- `lib/corp_pdf/incremental_writer.rb`
 
 **Benefits:**
 - Eliminates duplication of original PDF during incremental updates
@@ -153,14 +153,14 @@ Based on `memory-improvements.md`, additional optimizations could include:
 
 ## Files Changed
 
-1. `lib/acro_that/document.rb`
+1. `lib/corp_pdf/document.rb`
    - Freeze `@raw` after loading and on reassignment
    - Call `clear_cache` before creating new resolvers
 
-2. `lib/acro_that/object_resolver.rb`
+2. `lib/corp_pdf/object_resolver.rb`
    - Add `clear_cache` method
 
-3. `lib/acro_that/incremental_writer.rb`
+3. `lib/corp_pdf/incremental_writer.rb`
    - Optimize to avoid `dup` by using string concatenation
 
 4. `spec/memory_benchmark_helper.rb` (new)

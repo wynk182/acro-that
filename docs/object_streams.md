@@ -2,7 +2,7 @@
 
 ## Overview
 
-PDF Object Streams (also called "ObjStm") are a compression feature in PDFs that allows multiple PDF objects to be stored together in a single compressed stream. This reduces file size and improves performance. `AcroThat` handles object streams transparently, so you don't need to worry about them when working with PDF objects—but understanding how they work helps explain how the library parses PDFs.
+PDF Object Streams (also called "ObjStm") are a compression feature in PDFs that allows multiple PDF objects to be stored together in a single compressed stream. This reduces file size and improves performance. `CorpPdf` handles object streams transparently, so you don't need to worry about them when working with PDF objects—but understanding how they work helps explain how the library parses PDFs.
 
 ## What Are Object Streams?
 
@@ -85,7 +85,7 @@ After decompression:
 - Object 6 body: bytes 30-59 (offset 10 + 20 = 30, next object at offset 25)
 - Object 7 body: bytes 45+ (offset 25 + 20 = 45)
 
-## How AcroThat Parses Object Streams
+## How CorpPdf Parses Object Streams
 
 ### Step 1: Cross-Reference Table Parsing
 
@@ -125,7 +125,7 @@ def load_objstm(container_ref)
   raw = decode_stream_data(dict_src, extract_stream_body(body))
   
   # Parse the object stream
-  parsed = AcroThat::ObjStm.parse(raw, n: n, first: first)
+  parsed = CorpPdf::ObjStm.parse(raw, n: n, first: first)
   
   # Cache the result
   @objstm_cache[container_ref] = parsed
@@ -257,9 +257,9 @@ The index (`objstm_index`) tells us which object in the parsed array to return.
 2. **Performance**: Fewer objects to parse when opening the PDF
 3. **Common in Modern PDFs**: Most PDFs created by modern tools use object streams
 
-### Transparency in AcroThat
+### Transparency in CorpPdf
 
-`AcroThat` handles object streams automatically:
+`CorpPdf` handles object streams automatically:
 - You don't need to know if an object is in a stream or not
 - `object_body(ref)` returns the object body the same way regardless
 - Object streams are cached after first load (no repeated parsing)
@@ -281,7 +281,7 @@ Both use the same stream format (compressed, potentially with PNG predictor), bu
 
 ## PNG Predictor
 
-PNG Predictor is a compression technique that predicts values based on previous values to improve compression. `AcroThat` supports all 5 PNG predictor types:
+PNG Predictor is a compression technique that predicts values based on previous values to improve compression. `CorpPdf` supports all 5 PNG predictor types:
 
 1. **Type 0 (None)**: No prediction
 2. **Type 1 (Sub)**: Predict from left
@@ -293,7 +293,7 @@ The `apply_png_predictor` method decodes predictor-encoded data row by row, usin
 
 ## Summary
 
-Object streams allow PDFs to store multiple objects in compressed streams. `AcroThat` handles them by:
+Object streams allow PDFs to store multiple objects in compressed streams. `CorpPdf` handles them by:
 
 1. **Identifying** objects in streams via xref parsing
 2. **Lazy loading** stream containers when needed

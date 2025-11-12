@@ -2,7 +2,7 @@
 
 require "chunky_png"
 
-module AcroThat
+module CorpPdf
   module Fields
     # Handles signature field creation
     class Signature

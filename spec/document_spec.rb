@@ -4,7 +4,7 @@ require "spec_helper"
 require "stringio"
 require "tempfile"
 
-RSpec.describe AcroThat::Document do
+RSpec.describe CorpPdf::Document do
   describe "#new" do
     it "creates a document from a real PDF file" do
       pdf_path = File.join(__dir__, "fixtures", "form.pdf")
@@ -39,7 +39,7 @@ RSpec.describe AcroThat::Document do
 
       expect(fields).to be_an(Array)
       expect(fields.length).to be > 0
-      expect(fields.first).to be_a(AcroThat::Field)
+      expect(fields.first).to be_a(CorpPdf::Field)
       expect(fields.first.name).to be_a(String)
     end
 
@@ -100,7 +100,7 @@ RSpec.describe AcroThat::Document do
       new_field_name = "TestAddedField_#{Time.now.to_i}"
       new_field = doc.add_field(new_field_name, value: "Test Value", x: 100, y: 500, width: 200, height: 20, page: 1)
 
-      expect(new_field).to be_a(AcroThat::Field)
+      expect(new_field).to be_a(CorpPdf::Field)
       expect(new_field.name).to eq(new_field_name)
       expect(new_field.value).to eq("Test Value")
 

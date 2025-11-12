@@ -36,7 +36,7 @@ Same as `clear`, but modifies the current document in-place. Mutates the documen
 ### Remove All Fields
 
 ```ruby
-doc = AcroThat::Document.new("form.pdf")
+doc = CorpPdf::Document.new("form.pdf")
 
 # Remove all fields
 cleared_pdf = doc.clear(remove_pattern: /.*/)
@@ -173,10 +173,10 @@ Both are updated to remove references to deleted fields.
 ## Example: Complete Clearing Workflow
 
 ```ruby
-require 'acro_that'
+require 'corp_pdf'
 
 # Load PDF with many unwanted fields
-doc = AcroThat::Document.new("messy_form.pdf")
+doc = CorpPdf::Document.new("messy_form.pdf")
 
 # Remove all generated/UUID-like fields
 doc.clear! { |field| 

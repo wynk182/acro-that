@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module AcroThat
+module CorpPdf
   module Actions
     # Action to remove a field from a PDF document
     class RemoveField

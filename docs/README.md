@@ -1,6 +1,6 @@
-# AcroThat Documentation
+# CorpPdf Documentation
 
-This directory contains detailed documentation about how `AcroThat` works, with a focus on explaining the text-based nature of PDFs and how the library uses simple text traversal to parse and modify them.
+This directory contains detailed documentation about how `CorpPdf` works, with a focus on explaining the text-based nature of PDFs and how the library uses simple text traversal to parse and modify them.
 
 ## Documentation Overview
 
@@ -28,7 +28,7 @@ A detailed walkthrough of the `DictScan` module:
 
 ### [Object Streams](./object_streams.md)
 
-Explains how PDF object streams work and how `AcroThat` parses them:
+Explains how PDF object streams work and how `CorpPdf` parses them:
 - What object streams are and why they're used
 - Object stream structure (header + data sections)
 - How `ObjectResolver` identifies objects in streams
@@ -107,5 +107,5 @@ These unique delimiters allow pattern-matching on the first character to determi
 
 ## Questions?
 
-If you have questions about how `AcroThat` works, these docs should answer them. The code is also well-commented, so reading the source alongside the docs is recommended.
+If you have questions about how `CorpPdf` works, these docs should answer them. The code is also well-commented, so reading the source alongside the docs is recommended.
 

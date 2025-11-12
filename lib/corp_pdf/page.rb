@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module AcroThat
+module CorpPdf
   # Represents a page in a PDF document
   class Page
     attr_reader :page, :width, :height, :ref, :metadata, :document
@@ -71,7 +71,7 @@ module AcroThat
     def to_s
       dims = width && height ? " #{width}x#{height}" : ""
       rot = rotated? ? " (rotated #{rotation}°)" : ""
-      "#<AcroThat::Page page=#{page}#{dims}#{rot} ref=#{ref.inspect}>"
+      "#<CorpPdf::Page page=#{page}#{dims}#{rot} ref=#{ref.inspect}>"
     end
 
     alias inspect to_s

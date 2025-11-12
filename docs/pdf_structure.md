@@ -168,9 +168,9 @@ endobj
 
 For parsing structure (dictionaries), we typically strip or ignore stream bodies because they can contain arbitrary binary data that would confuse text-based parsing.
 
-## Why AcroThat Works
+## Why CorpPdf Works
 
-`AcroThat` works because **PDF dictionaries are just text patterns**. Despite looking complicated, the algorithms are straightforward:
+`CorpPdf` works because **PDF dictionaries are just text patterns**. Despite looking complicated, the algorithms are straightforward:
 
 ### Finding Dictionaries
 
@@ -213,7 +213,7 @@ Given this PDF dictionary text:
 << /Type /Annot /Subtype /Widget /V (Hello World) /Rect [100 500 200 520] >>
 ```
 
-How `AcroThat` would parse it:
+How `CorpPdf` would parse it:
 
 1. **`each_dictionary` finds it:**
    - Finds `<<` at position 0
@@ -239,9 +239,9 @@ How `AcroThat` would parse it:
 
 ## Conclusion
 
-PDF files are **structured text files** with binary data embedded in streams. The structure itself—dictionaries, arrays, strings, references—is all text-based syntax. This is why `AcroThat` can use simple text traversal to parse and modify PDF dictionaries without needing a full PDF parser.
+PDF files are **structured text files** with binary data embedded in streams. The structure itself—dictionaries, arrays, strings, references—is all text-based syntax. This is why `CorpPdf` can use simple text traversal to parse and modify PDF dictionaries without needing a full PDF parser.
 
-The apparent complexity in `AcroThat` comes from:
+The apparent complexity in `CorpPdf` comes from:
 - Handling PDF's various value types
 - Proper encoding/decoding of strings
 - Careful preservation of structure during edits

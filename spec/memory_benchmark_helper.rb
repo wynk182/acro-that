@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# Memory benchmarking helper for acro_that
+# Memory benchmarking helper for corp_pdf
 # Uses GC.stat and ObjectSpace.memsize_of for memory measurements
 module MemoryBenchmarkHelper
   # Measure memory before and after a block

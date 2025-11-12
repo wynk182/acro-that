@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module AcroThat
+module CorpPdf
   # Represents a PDF form field
   class Field
     attr_accessor :value
@@ -97,7 +97,7 @@ module AcroThat
                   " position=(unknown)"
                 end
       page_str = page ? " page=#{page}" : ""
-      "#<AcroThat::Field name=#{name.inspect} type=#{type_str} value=#{value.inspect} ref=#{ref.inspect}#{pos_str}#{page_str}>"
+      "#<CorpPdf::Field name=#{name.inspect} type=#{type_str} value=#{value.inspect} ref=#{ref.inspect}#{pos_str}#{page_str}>"
     end
 
     alias inspect to_s

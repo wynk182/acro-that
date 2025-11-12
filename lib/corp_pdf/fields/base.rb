@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module AcroThat
+module CorpPdf
   module Fields
     # Base class for field types with shared functionality
     module Base

@@ -4,7 +4,7 @@ This document identifies memory usage issues and opportunities to optimize memor
 
 ## Overview
 
-Currently, `acro_that` loads entire PDF files into memory and creates multiple copies during processing. For small to medium PDFs (<20MB), this is acceptable, but for larger documents (39+ pages, especially with images/compressed streams), memory usage can become problematic.
+Currently, `corp_pdf` loads entire PDF files into memory and creates multiple copies during processing. For small to medium PDFs (<20MB), this is acceptable, but for larger documents (39+ pages, especially with images/compressed streams), memory usage can become problematic.
 
 ### Current Memory Footprint
 
@@ -28,7 +28,7 @@ The PDF file is loaded twice: once in `Document#@raw` and again in `ObjectResolv
 ```ruby
 # document.rb line 21-26
 @raw = File.binread(path_or_io)  # First copy: ~10MB
-@resolver = AcroThat::ObjectResolver.new(@raw)  # Second copy: ~10MB
+@resolver = CorpPdf::ObjectResolver.new(@raw)  # Second copy: ~10MB
 ```
 
 ### Suggested Improvement
@@ -141,7 +141,7 @@ end
 # document.rb line 66-67 (flatten!)
 flattened_content = flatten  # New PDF in memory: ~10-20MB
 @raw = flattened_content  # Replace original
-@resolver = AcroThat::ObjectResolver.new(flattened_content)  # Another copy!
+@resolver = CorpPdf::ObjectResolver.new(flattened_content)  # Another copy!
 ```
 
 ### Suggested Improvement

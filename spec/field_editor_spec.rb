@@ -3,7 +3,7 @@
 require "spec_helper"
 require "tempfile"
 
-RSpec.describe AcroThat::Document do
+RSpec.describe CorpPdf::Document do
   let(:test_pdf_path) { "/Users/2b-software-mac/Documents/work/acro-that/Stamford_Trade-Name-Dissolution.pdf" }
   let(:temp_output_path) { Tempfile.new(["test_output", ".pdf"]).path }
 
@@ -49,7 +49,7 @@ RSpec.describe AcroThat::Document do
   end
 end
 
-RSpec.describe AcroThat::ObjStm do
+RSpec.describe CorpPdf::ObjStm do
   describe ".parse" do
     it "parses object stream correctly" do
       # Create a mock object stream
@@ -90,7 +90,7 @@ RSpec.describe AcroThat::ObjStm do
   end
 end
 
-RSpec.describe AcroThat::DictScan do
+RSpec.describe CorpPdf::DictScan do
   describe ".strip_stream_bodies" do
     it "replaces stream bodies with sentinel" do
       input = "stream\nHello World\nendstream"

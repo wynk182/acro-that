@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module AcroThat
+module CorpPdf
   module Actions
     # Action to add a new field to a PDF document
     # Delegates to field-specific classes for actual field creation
@@ -57,15 +57,15 @@ module AcroThat
         is_button = [:button, "button", "/Btn", "/btn"].include?(type_input)
 
         if is_radio && group_id
-          AcroThat::Fields::Radio.new(@document, @name, @options.merge(metadata: @metadata))
+          CorpPdf::Fields::Radio.new(@document, @name, @options.merge(metadata: @metadata))
         elsif [:signature, "signature", "/Sig"].include?(type_input)
-          AcroThat::Fields::Signature.new(@document, @name, @options.merge(metadata: @metadata))
+          CorpPdf::Fields::Signature.new(@document, @name, @options.merge(metadata: @metadata))
         elsif [:checkbox, "checkbox"].include?(type_input) || is_button
           # :button type maps to /Btn which are checkboxes by default (unless radio flag is set)
-          AcroThat::Fields::Checkbox.new(@document, @name, @options.merge(metadata: @metadata))
+          CorpPdf::Fields::Checkbox.new(@document, @name, @options.merge(metadata: @metadata))
         else
           # Default to text field
-          AcroThat::Fields::Text.new(@document, @name, @options.merge(metadata: @metadata))
+          CorpPdf::Fields::Text.new(@document, @name, @options.merge(metadata: @metadata))
         end
       end
     end

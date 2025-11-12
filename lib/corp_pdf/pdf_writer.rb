@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module AcroThat
+module CorpPdf
   # PDFWriter - Clean PDF writer for flattening documents
   # Writes a complete PDF from parsed objects, consolidating incremental updates
   class PDFWriter

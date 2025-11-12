@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module AcroThat
+module CorpPdf
   module Actions
     # Action to update a field's value and optionally rename it in a PDF document
     class UpdateField
@@ -49,7 +49,7 @@ module AcroThat
           image_data = @new_value
           if image_data && image_data.is_a?(String) && (image_data.start_with?("data:image/") || (image_data.length > 50 && image_data.match?(%r{^[A-Za-z0-9+/]*={0,2}$})))
             # Try adding signature appearance using Signature field class
-            result = AcroThat::Fields::Signature.add_appearance(@document, fld.ref, image_data)
+            result = CorpPdf::Fields::Signature.add_appearance(@document, fld.ref, image_data)
             return result if result
             # If appearance fails, fall through to normal update
           end
@@ -490,7 +490,7 @@ module AcroThat
           export_value ||= "widget_#{widget_ref[0]}"
 
           # Create a Radio instance to reuse appearance creation logic
-          radio_handler = AcroThat::Fields::Radio.new(@document, "", { width: rect[:width], height: rect[:height] })
+          radio_handler = CorpPdf::Fields::Radio.new(@document, "", { width: rect[:width], height: rect[:height] })
           radio_handler.send(
             :add_radio_button_appearance,
             widget_ref[0],

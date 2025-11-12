@@ -11,8 +11,8 @@ RSpec.describe "Memory Benchmarks", type: :benchmark do
       skip "Benchmark - run with BENCHMARK=true" unless ENV["BENCHMARK"] == "true"
 
       results = MemoryBenchmarkHelper.measure_memory do
-        doc = AcroThat::Document.new(pdf_path)
-        expect(doc).to be_a(AcroThat::Document)
+        doc = CorpPdf::Document.new(pdf_path)
+        expect(doc).to be_a(CorpPdf::Document)
       end
 
       puts "\n=== Document Initialization ==="
@@ -25,7 +25,7 @@ RSpec.describe "Memory Benchmarks", type: :benchmark do
     it "measures memory sharing between @raw and ObjectResolver#{@bytes}" do
       skip "Benchmark - run with BENCHMARK=true" unless ENV["BENCHMARK"] == "true"
 
-      doc = AcroThat::Document.new(pdf_path)
+      doc = CorpPdf::Document.new(pdf_path)
 
       raw_size = MemoryBenchmarkHelper.measure_object(doc.instance_variable_get(:@raw))
       resolver_bytes = doc.instance_variable_get(:@resolver).instance_variable_get(:@bytes)
@@ -56,7 +56,7 @@ RSpec.describe "Memory Benchmarks", type: :benchmark do
     it "measures memory for list_fields operation" do
       skip "Benchmark - run with BENCHMARK=true" unless ENV["BENCHMARK"] == "true"
 
-      doc = AcroThat::Document.new(pdf_path)
+      doc = CorpPdf::Document.new(pdf_path)
 
       results = MemoryBenchmarkHelper.measure_memory do
         fields = doc.list_fields
@@ -75,7 +75,7 @@ RSpec.describe "Memory Benchmarks", type: :benchmark do
     it "measures memory for flatten operation" do
       skip "Benchmark - run with BENCHMARK=true" unless ENV["BENCHMARK"] == "true"
 
-      doc = AcroThat::Document.new(pdf_path)
+      doc = CorpPdf::Document.new(pdf_path)
 
       results = MemoryBenchmarkHelper.measure_memory do
         flattened = doc.flatten
@@ -92,7 +92,7 @@ RSpec.describe "Memory Benchmarks", type: :benchmark do
     it "measures memory for flatten! operation" do
       skip "Benchmark - run with BENCHMARK=true" unless ENV["BENCHMARK"] == "true"
 
-      doc = AcroThat::Document.new(pdf_path)
+      doc = CorpPdf::Document.new(pdf_path)
 
       results = MemoryBenchmarkHelper.measure_memory do
         doc.flatten!
@@ -110,7 +110,7 @@ RSpec.describe "Memory Benchmarks", type: :benchmark do
     it "measures memory for write operation" do
       skip "Benchmark - run with BENCHMARK=true" unless ENV["BENCHMARK"] == "true"
 
-      doc = AcroThat::Document.new(pdf_path)
+      doc = CorpPdf::Document.new(pdf_path)
       doc.add_field("TestField", value: "Test", x: 100, y: 500, width: 200, height: 20, page: 1)
 
       results = MemoryBenchmarkHelper.measure_memory do
@@ -129,7 +129,7 @@ RSpec.describe "Memory Benchmarks", type: :benchmark do
     it "measures memory for clear operation" do
       skip "Benchmark - run with BENCHMARK=true" unless ENV["BENCHMARK"] == "true"
 
-      doc = AcroThat::Document.new(pdf_path)
+      doc = CorpPdf::Document.new(pdf_path)
 
       results = MemoryBenchmarkHelper.measure_memory do
         cleared = doc.clear(remove_pattern: /^$/) # Remove nothing
@@ -147,7 +147,7 @@ RSpec.describe "Memory Benchmarks", type: :benchmark do
     it "measures memory after accessing objects in streams" do
       skip "Benchmark - run with BENCHMARK=true" unless ENV["BENCHMARK"] == "true"
 
-      doc = AcroThat::Document.new(pdf_path)
+      doc = CorpPdf::Document.new(pdf_path)
       resolver = doc.instance_variable_get(:@resolver)
 
       # Access objects to populate cache
@@ -175,7 +175,7 @@ RSpec.describe "Memory Benchmarks", type: :benchmark do
     it "measures peak memory during flatten" do
       skip "Benchmark - run with BENCHMARK=true" unless ENV["BENCHMARK"] == "true"
 
-      doc = AcroThat::Document.new(pdf_path)
+      doc = CorpPdf::Document.new(pdf_path)
 
       results = MemoryBenchmarkHelper.measure_peak_memory do
         flattened = doc.flatten

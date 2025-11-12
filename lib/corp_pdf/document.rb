@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module AcroThat
+module CorpPdf
   class Document
     attr_reader :path
 
@@ -26,7 +26,7 @@ module AcroThat
 
       # Extract PDF content if wrapped in multipart form data
       @raw = extract_pdf_from_form_data(raw_bytes).freeze
-      @resolver = AcroThat::ObjectResolver.new(@raw)
+      @resolver = CorpPdf::ObjectResolver.new(@raw)
       @patches = []
       # Track radio button groups: group_id -> parent_field_ref
       @radio_groups = {}
@@ -79,7 +79,7 @@ module AcroThat
       flattened_content = flatten.freeze
       @raw = flattened_content
       @resolver.clear_cache
-      @resolver = AcroThat::ObjectResolver.new(flattened_content)
+      @resolver = CorpPdf::ObjectResolver.new(flattened_content)
       @patches = []
 
       self
@@ -631,7 +631,7 @@ module AcroThat
       cleaned_content = clear(...).freeze
       @raw = cleaned_content
       @resolver.clear_cache
-      @resolver = AcroThat::ObjectResolver.new(cleaned_content)
+      @resolver = CorpPdf::ObjectResolver.new(cleaned_content)
       @patches = []
 
       self
@@ -640,11 +640,11 @@ module AcroThat
     # Write out with an incremental update
     def write(path_out = nil, flatten: true)
       deduped_patches = @patches.reverse.uniq { |p| p[:ref] }.reverse
-      writer = AcroThat::IncrementalWriter.new(@raw, deduped_patches)
+      writer = CorpPdf::IncrementalWriter.new(@raw, deduped_patches)
       @raw = writer.render.freeze
       @patches = []
       @resolver.clear_cache
-      @resolver = AcroThat::ObjectResolver.new(@raw)
+      @resolver = CorpPdf::ObjectResolver.new(@raw)
 
       flatten! if flatten
 

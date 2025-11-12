@@ -1,4 +1,4 @@
-# AcroThat
+# CorpPdf
 
 A minimal pure Ruby library for parsing and editing PDF AcroForm fields.
 
@@ -16,7 +16,7 @@ A minimal pure Ruby library for parsing and editing PDF AcroForm fields.
 Add this line to your application's Gemfile:
 
 ```ruby
-gem 'acro_that'
+gem 'corp_pdf'
 ```
 
 And then execute:
@@ -28,7 +28,7 @@ bundle install
 Or install it directly:
 
 ```bash
-gem install acro_that
+gem install corp_pdf
 ```
 
 ## Usage
@@ -36,16 +36,16 @@ gem install acro_that
 ### Basic Usage
 
 ```ruby
-require 'acro_that'
+require 'corp_pdf'
 
 # Create a document from a file path or StringIO
-doc = AcroThat::Document.new("form.pdf")
+doc = CorpPdf::Document.new("form.pdf")
 
 # Or from StringIO
 require 'stringio'
 pdf_data = File.binread("form.pdf")
 io = StringIO.new(pdf_data)
-doc = AcroThat::Document.new(io)
+doc = CorpPdf::Document.new(io)
 
 # List all form fields
 fields = doc.list_fields
@@ -100,7 +100,7 @@ File.binwrite("output.pdf", pdf_bytes)
 #### Working with Field Objects
 
 ```ruby
-doc = AcroThat::Document.new("form.pdf")
+doc = CorpPdf::Document.new("form.pdf")
 fields = doc.list_fields
 
 # Access field properties
@@ -141,10 +141,10 @@ field.has_position?
 
 #### Signature Fields with Image Appearances
 
-Signature fields can be enhanced with image appearances (signature images). When you update a signature field with image data (base64-encoded JPEG or PNG), AcroThat will automatically add the image as the field's appearance.
+Signature fields can be enhanced with image appearances (signature images). When you update a signature field with image data (base64-encoded JPEG or PNG), CorpPdf will automatically add the image as the field's appearance.
 
 ```ruby
-doc = AcroThat::Document.new("form.pdf")
+doc = CorpPdf::Document.new("form.pdf")
 
 # Add a signature field
 sig_field = doc.add_field("MySignature", 
@@ -177,10 +177,10 @@ doc.write("form_with_signature.pdf")
 
 #### Radio Buttons
 
-Radio buttons allow users to select a single option from a group of mutually exclusive choices. Radio buttons in AcroThat are created using the `:radio` type and require a `group_id` to group related buttons together.
+Radio buttons allow users to select a single option from a group of mutually exclusive choices. Radio buttons in CorpPdf are created using the `:radio` type and require a `group_id` to group related buttons together.
 
 ```ruby
-doc = AcroThat::Document.new("form.pdf")
+doc = CorpPdf::Document.new("form.pdf")
 
 # Create a radio button group with multiple options
 # All buttons in the same group must share the same group_id
@@ -236,7 +236,7 @@ doc.write("form_with_radio.pdf")
 **Example with multiple groups:**
 
 ```ruby
-doc = AcroThat::Document.new("form.pdf")
+doc = CorpPdf::Document.new("form.pdf")
 
 # First radio button group (e.g., "Gender")
 doc.add_field("Male", type: :radio, group_id: "gender", value: "male", x: 100, y: 500, width: 20, height: 20, page: 1, selected: true)
@@ -257,14 +257,14 @@ doc.write("form_with_multiple_groups.pdf")
 
 ```ruby
 # Flatten a PDF to remove incremental updates
-doc = AcroThat::Document.new("form.pdf")
+doc = CorpPdf::Document.new("form.pdf")
 doc.flatten!  # Modifies the document in-place
 
 # Or create a new flattened document
-flattened_doc = AcroThat::Document.flatten_pdf("input.pdf", "output.pdf")
+flattened_doc = CorpPdf::Document.flatten_pdf("input.pdf", "output.pdf")
 
 # Or get flattened bytes
-flattened_bytes = AcroThat::Document.flatten_pdf("input.pdf")
+flattened_bytes = CorpPdf::Document.flatten_pdf("input.pdf")
 ```
 
 #### Clearing Fields
@@ -272,7 +272,7 @@ flattened_bytes = AcroThat::Document.flatten_pdf("input.pdf")
 The `clear` and `clear!` methods allow you to completely remove unwanted fields by rewriting the entire PDF:
 
 ```ruby
-doc = AcroThat::Document.new("form.pdf")
+doc = CorpPdf::Document.new("form.pdf")
 
 # Remove all fields matching a pattern
 doc.clear!(remove_pattern: /^text-/)
@@ -294,12 +294,12 @@ doc.write("cleared.pdf", flatten: true)
 
 ### API Reference
 
-#### `AcroThat::Document.new(path_or_io)`
+#### `CorpPdf::Document.new(path_or_io)`
 Creates a PDF document from a file path (String) or StringIO object.
 
 ```ruby
-doc = AcroThat::Document.new("path/to/file.pdf")
-doc = AcroThat::Document.new(StringIO.new(pdf_bytes))
+doc = CorpPdf::Document.new("path/to/file.pdf")
+doc = CorpPdf::Document.new(StringIO.new(pdf_bytes))
 ```
 
 #### `#list_fields`
@@ -408,12 +408,12 @@ Flattens the PDF in-place (modifies the current document instance).
 doc.flatten!
 ```
 
-#### `AcroThat::Document.flatten_pdf(input_path, output_path = nil)`
+#### `CorpPdf::Document.flatten_pdf(input_path, output_path = nil)`
 Class method to flatten a PDF. If `output_path` is provided, writes to that path and returns the path. Otherwise returns a new `Document` instance with the flattened content.
 
 ```ruby
-AcroThat::Document.flatten_pdf("input.pdf", "output.pdf")
-flattened_doc = AcroThat::Document.flatten_pdf("input.pdf")
+CorpPdf::Document.flatten_pdf("input.pdf", "output.pdf")
+flattened_doc = CorpPdf::Document.flatten_pdf("input.pdf")
 ```
 
 #### `#clear(options = {})` and `#clear!(options = {})`
@@ -480,7 +480,7 @@ For complete working examples, see the test files in the `spec/` directory:
 
 ## Architecture
 
-AcroThat is built as a minimal PDF engine with the following components:
+CorpPdf is built as a minimal PDF engine with the following components:
 
 - **ObjectResolver**: Resolves and extracts PDF objects from the document
 - **DictScan**: Parses PDF dictionaries and extracts field information
