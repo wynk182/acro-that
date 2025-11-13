@@ -11,3 +11,4 @@ pdf_test_script.rb
 .cursor/
 
 .DS_Store
+.env*

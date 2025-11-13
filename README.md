@@ -54,7 +54,7 @@ fields.each do |field|
   puts "#{field.name} (#{type_info}) = #{field.value}"
 end
 
-# Add a new field (using symbol key for type)
+# Add a new field
 new_field = doc.add_field("NameField", 
   value: "John Doe",
   x: 100,
@@ -62,17 +62,7 @@ new_field = doc.add_field("NameField",
   width: 200,
   height: 20,
   page: 1,
-  type: :text  # Optional: :text, :button, :choice, :signature (or "/Tx", "/Btn", etc.)
-)
-
-# Or using the PDF type string directly
-button_field = doc.add_field("CheckBox", 
-  type: "/Btn",  # Or use :button symbol
-  x: 100,
-  y: 600,
-  width: 20,
-  height: 20,
-  page: 1
+  type: :text
 )
 
 # Update a field value
@@ -87,9 +77,6 @@ doc.remove_field("FieldToRemove")
 # Write the modified PDF to a file
 doc.write("output.pdf")
 
-# Or write with flattening (removes incremental updates)
-doc.write("output.pdf", flatten: true)
-
 # Or get PDF bytes as a String (returns String, not StringIO)
 pdf_bytes = doc.write
 File.binwrite("output.pdf", pdf_bytes)
@@ -99,45 +86,41 @@ File.binwrite("output.pdf", pdf_bytes)
 
 #### Working with Field Objects
 
+Each field returned by `#list_fields` is a `Field` object with properties and methods:
+
 ```ruby
 doc = CorpPdf::Document.new("form.pdf")
 fields = doc.list_fields
+field = fields.first
 
 # Access field properties
-field = fields.first
-puts field.name        # Field name
-puts field.value       # Field value
-puts field.type        # Field type (e.g., "/Tx")
-puts field.type_key    # Symbol key (e.g., :text) or nil if not mapped
-puts field.x           # X position
-puts field.y           # Y position
-puts field.width       # Width
-puts field.height      # Height
-puts field.page        # Page number
+field.name        # Field name (String)
+field.value       # Field value (String or nil)
+field.type        # Field type (String, e.g., "/Tx", "/Btn", "/Ch", "/Sig")
+field.type_key    # Symbol key (e.g., :text) or nil if not mapped
+field.x           # X coordinate (Float or nil)
+field.y           # Y coordinate (Float or nil)
+field.width       # Field width (Float or nil)
+field.height      # Field height (Float or nil)
+field.page        # Page number (Integer or nil)
+field.ref         # Object reference array [object_number, generation]
 
-# Fields default to "/Tx" if type is missing from PDF
-
-# Update a field directly
-field.update("New Value")
-
-# Update and rename a field
-field.update("New Value", new_name: "NewName")
-
-# Remove a field directly
-field.remove
-
-# Check field type
-field.text_field?      # true for text fields
-field.button_field?    # true for button/checkbox fields
-field.choice_field?    # true for choice/dropdown fields
-field.signature_field? # true for signature fields
-
-# Check if field has a value
-field.has_value?
-
-# Check if field has position information
-field.has_position?
+# Field methods
+field.update("New Value")                    # Update field value
+field.update("New Value", new_name: "NewName") # Update and rename
+field.remove                                  # Remove the field
+field.text_field?                             # Check if text field
+field.button_field?                           # Check if button/checkbox field
+field.choice_field?                           # Check if choice/dropdown field
+field.signature_field?                        # Check if signature field
+field.has_value?                              # Check if field has a value
+field.has_position?                           # Check if field has position info
+field.object_number                           # Get object number
+field.generation                              # Get generation number
+field.valid_ref?                              # Check if field has valid reference
 ```
+
+**Note**: When reading fields from a PDF, if the type is missing or empty, it defaults to `"/Tx"` (text field).
 
 #### Signature Fields with Image Appearances
 
@@ -255,26 +238,33 @@ doc.write("form_with_multiple_groups.pdf")
 
 #### Flattening PDFs
 
+Flattening removes incremental updates from a PDF, creating a clean single-version document:
+
 ```ruby
-# Flatten a PDF to remove incremental updates
 doc = CorpPdf::Document.new("form.pdf")
-doc.flatten!  # Modifies the document in-place
 
-# Or create a new flattened document
-flattened_doc = CorpPdf::Document.flatten_pdf("input.pdf", "output.pdf")
+# Flatten in-place (modifies the document)
+doc.flatten!
 
-# Or get flattened bytes
-flattened_bytes = CorpPdf::Document.flatten_pdf("input.pdf")
+# Get flattened bytes without modifying the document
+flattened_bytes = doc.flatten
+
+# Write with flattening option
+doc.write("output.pdf", flatten: true)
+
+# Class method: flatten from file
+CorpPdf::Document.flatten_pdf("input.pdf", "output.pdf")
+flattened_doc = CorpPdf::Document.flatten_pdf("input.pdf")
 ```
 
 #### Clearing Fields
 
-The `clear` and `clear!` methods allow you to completely remove unwanted fields by rewriting the entire PDF:
+The `clear` and `clear!` methods completely remove unwanted fields by rewriting the entire PDF (more efficient than multiple `remove_field` calls):
 
 ```ruby
 doc = CorpPdf::Document.new("form.pdf")
 
-# Remove all fields matching a pattern
+# Remove fields matching a pattern (in-place)
 doc.clear!(remove_pattern: /^text-/)
 
 # Keep only specific fields
@@ -283,14 +273,17 @@ doc.clear!(keep_fields: ["Name", "Email"])
 # Remove specific fields
 doc.clear!(remove_fields: ["OldField1", "OldField2"])
 
-# Use a block to determine which fields to keep
-doc.clear! { |name| !name.start_with?("temp_") }
+# Use a block to filter fields (return true to keep)
+doc.clear! { |field| !field.name.start_with?("temp_") }
+
+# Get cleared bytes without modifying document
+cleared_bytes = doc.clear(remove_pattern: /.*/)
 
 # Write the cleared PDF
 doc.write("cleared.pdf", flatten: true)
 ```
 
-**Note:** Unlike `remove_field`, which uses incremental updates, `clear` completely rewrites the PDF to exclude unwanted fields. This is more efficient when removing many fields and ensures complete removal. See [Clearing Fields Documentation](docs/cleaning_fields.md) for detailed information.
+**Note:** Unlike `remove_field`, which uses incremental updates, `clear` completely rewrites the PDF. See [Clearing Fields Documentation](docs/clear_fields.md) for detailed information.
 
 ### API Reference
 
@@ -339,43 +332,25 @@ second_page.add_field("Email", x: 100, y: 650, width: 200, height: 20)
 - `page.to_h` - Convert to hash for backward compatibility
 
 #### `#add_field(name, options)`
-Adds a new form field to the document. Options include:
+Adds a new form field to the document. Returns a `Field` object if successful.
+
+**Options:**
 - `value`: Default value for the field (String)
-- `x`: X coordinate (Integer, default: 100)
-- `y`: Y coordinate (Integer, default: 500)
-- `width`: Field width (Integer, default: 100)
-- `height`: Field height (Integer, default: 20)
-- `page`: Page number to add the field to (Integer, default: 1)
-- `type`: Field type (Symbol or String, default: `"/Tx"`). Options:
+- `x`, `y`: Field position coordinates (Integer, defaults: 100, 500)
+- `width`, `height`: Field dimensions (Integer, defaults: 100, 20)
+- `page`: Page number (Integer, default: 1)
+- `type`: Field type (Symbol or String, default: `"/Tx"`)
   - Symbol keys: `:text`, `:button`, `:choice`, `:signature`, `:radio`
   - PDF type strings: `"/Tx"`, `"/Btn"`, `"/Ch"`, `"/Sig"`
-- `group_id`: Required for radio buttons. String or identifier to group radio buttons together. All radio buttons in the same group must share the same `group_id`.
-- `selected`: Optional for radio buttons. Boolean (`true` or `false`, or string `"true"`). If set to `true`, this radio button will be selected by default.
+- `group_id`: Required for radio buttons. Groups related radio buttons together.
+- `selected`: Optional for radio buttons. Set to `true` to select by default.
 
-Returns a `Field` object if successful.
-
-```ruby
-# Using symbol keys (recommended)
-field = doc.add_field("NewField", value: "Value", x: 100, y: 500, width: 200, height: 20, page: 1, type: :text)
-
-# Using PDF type strings
-field = doc.add_field("ButtonField", type: "/Btn", x: 100, y: 500, width: 20, height: 20, page: 1)
-
-# Radio button example
-field = doc.add_field("Option1", type: :radio, group_id: "my_group", value: "option1", x: 100, y: 500, width: 20, height: 20, page: 1, selected: true)
-```
+See [Radio Buttons](#radio-buttons) section for radio button examples.
 
 #### `#update_field(name, new_value, new_name: nil)`
-Updates a field's value and optionally renames it. For signature fields, if `new_value` looks like image data (base64-encoded JPEG/PNG or a data URI), it will automatically add the image as the field's appearance. Returns `true` if successful, `false` if field not found.
+Updates a field's value and optionally renames it. Returns `true` if successful, `false` if field not found.
 
-```ruby
-doc.update_field("FieldName", "New Value")
-doc.update_field("OldName", "New Value", new_name: "NewName")
-
-# For signature fields with images:
-doc.update_field("SignatureField", base64_image_data)  # Base64-encoded JPEG or PNG
-doc.update_field("SignatureField", "data:image/png;base64,...")  # Data URI format
-```
+For signature fields, if `new_value` is base64-encoded JPEG/PNG or a data URI, it automatically adds the image as the field's appearance. See [Signature Fields](#signature-fields-with-image-appearances) section for examples.
 
 #### `#remove_field(name_or_field)`
 Removes a form field by name (String) or Field object. Returns `true` if successful, `false` if field not found.
@@ -388,88 +363,22 @@ doc.remove_field(field_object)
 #### `#write(path_out = nil, flatten: false)`
 Writes the modified PDF. If `path_out` is provided, writes to that file path and returns `true`. If no path is provided, returns the PDF bytes as a String. The `flatten` option removes incremental updates from the PDF.
 
-```ruby
-doc.write("output.pdf")              # Write to file
-doc.write("output.pdf", flatten: true) # Write flattened PDF to file
-pdf_bytes = doc.write                 # Get PDF bytes as String
-```
-
-#### `#flatten`
-Returns flattened PDF bytes (removes incremental updates) without modifying the document.
-
-```ruby
-flattened_bytes = doc.flatten
-```
-
-#### `#flatten!`
-Flattens the PDF in-place (modifies the current document instance).
-
-```ruby
-doc.flatten!
-```
+#### `#flatten` and `#flatten!`
+Flattening methods. `#flatten` returns flattened PDF bytes without modifying the document. `#flatten!` flattens the PDF in-place.
 
 #### `CorpPdf::Document.flatten_pdf(input_path, output_path = nil)`
 Class method to flatten a PDF. If `output_path` is provided, writes to that path and returns the path. Otherwise returns a new `Document` instance with the flattened content.
 
-```ruby
-CorpPdf::Document.flatten_pdf("input.pdf", "output.pdf")
-flattened_doc = CorpPdf::Document.flatten_pdf("input.pdf")
-```
-
 #### `#clear(options = {})` and `#clear!(options = {})`
-Removes unwanted fields by rewriting the entire PDF. `clear` returns cleared PDF bytes without modifying the document, while `clear!` modifies the document in-place. Options include:
+Removes unwanted fields by rewriting the entire PDF. `clear` returns cleared PDF bytes without modifying the document, while `clear!` modifies the document in-place.
 
+**Options:**
 - `keep_fields`: Array of field names to keep (all others removed)
 - `remove_fields`: Array of field names to remove
 - `remove_pattern`: Regex pattern - fields matching this are removed
-- Block: Given field name, return `true` to keep, `false` to remove
+- Block: Given field object, return `true` to keep, `false` to remove
 
-```ruby
-# Remove all fields
-cleared = doc.clear(remove_pattern: /.*/)
-
-# Remove fields matching pattern (in-place)
-doc.clear!(remove_pattern: /^text-/)
-
-# Keep only specific fields
-doc.clear!(keep_fields: ["Name", "Email"])
-
-# Use block to filter fields (return true to remove)
-doc.clear! { |field| field.name.match?(/^[a-f0-9-]{30,}/) }
-```
-
-**Note:** This completely rewrites the PDF (like `flatten`), so it's more efficient than using `remove_field` multiple times. See [Clearing Fields Documentation](docs/cleaning_fields.md) for detailed information.
-
-### Field Object
-
-Each field returned by `#list_fields` is a `Field` object with the following attributes and methods:
-
-#### Attributes
-- `name`: Field name (String)
-- `value`: Field value (String or nil)
-- `type`: Field type (String, e.g., "/Tx", "/Btn", "/Ch", "/Sig"). Defaults to "/Tx" if missing from PDF.
-- `ref`: Object reference array `[object_number, generation]`
-- `x`: X coordinate (Float or nil)
-- `y`: Y coordinate (Float or nil)
-- `width`: Field width (Float or nil)
-- `height`: Field height (Float or nil)
-- `page`: Page number (Integer or nil)
-
-#### Methods
-- `#update(new_value, new_name: nil)`: Update the field's value and optionally rename it
-- `#remove`: Remove the field from the document
-- `#type_key`: Returns the symbol key for the type (e.g., `:text` for `"/Tx"`) or `nil` if not mapped
-- `#text_field?`: Returns true if field is a text field
-- `#button_field?`: Returns true if field is a button/checkbox field
-- `#choice_field?`: Returns true if field is a choice/dropdown field
-- `#signature_field?`: Returns true if field is a signature field
-- `#has_value?`: Returns true if field has a non-empty value
-- `#has_position?`: Returns true if field has position information
-- `#object_number`: Returns the object number (first element of ref)
-- `#generation`: Returns the generation number (second element of ref)
-- `#valid_ref?`: Returns true if field has a valid reference (not a placeholder)
-
-**Note**: When reading fields from a PDF, if the type is missing or empty, it defaults to `"/Tx"` (text field). The `type_key` method allows you to get the symbol representation (e.g., `:text`) from the type string.
+See [Clearing Fields](#clearing-fields) section for examples.
 
 ## Example
 
